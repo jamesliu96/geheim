@@ -238,16 +238,16 @@ func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err err
 }
 
 type Encrypter struct {
-	input       io.Reader
-	output      io.Writer
-	pass        []byte
-	mode, keyMd uint16
-	keyIter     int
-	dbgFn       DbgFunc
+	Input       io.Reader
+	Output      io.Writer
+	Pass        []byte
+	Mode, KeyMd uint16
+	KeyIter     int
+	DbgFn       DbgFunc
 }
 
 func (p *Encrypter) Enc() error {
-	return Enc(p.input, p.output, p.pass, p.mode, p.keyMd, p.keyIter, p.dbgFn)
+	return Enc(p.Input, p.Output, p.Pass, p.Mode, p.KeyMd, p.KeyIter, p.DbgFn)
 }
 
 func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbgFn DbgFunc) *Encrypter {
@@ -255,14 +255,14 @@ func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode, keyMd ui
 }
 
 type Decrypter struct {
-	input  io.Reader
-	output io.Writer
-	pass   []byte
-	dbgFn  DbgFunc
+	Input  io.Reader
+	Output io.Writer
+	Pass   []byte
+	DbgFn  DbgFunc
 }
 
-func (p *Encrypter) Dec() error {
-	return Dec(p.input, p.output, p.pass, p.dbgFn)
+func (p *Decrypter) Dec() error {
+	return Dec(p.Input, p.Output, p.Pass, p.DbgFn)
 }
 
 func NewDecrypter(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) *Decrypter {
