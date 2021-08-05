@@ -39,10 +39,100 @@ func flagsSet() (inSet, outSet, passSet bool) {
 	return
 }
 
-func checkFlags() {
-	if err := geheim.CheckConfig(fMode, fKeyMd, fKeyIter); err != nil {
-		panic(err)
+func printfStderr(format string, v ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, v...)
+}
+
+func checkErr(errs ...error) (gotErr bool) {
+	for _, err := range errs {
+		if err != nil {
+			printfStderr("error: %s\n", err)
+			os.Exit(1)
+			gotErr = true
+		}
 	}
+	return
+}
+
+func getIO(inSet, outSet bool) (input, output *os.File, err error) {
+	if inSet {
+		input, err = os.Open(fInput)
+		if err != nil {
+			return
+		}
+		if fi, e := input.Stat(); e != nil {
+			err = e
+			return
+		} else if !fi.Mode().IsRegular() {
+			err = errors.New("input file is not regular")
+			return
+		}
+	} else {
+		input = os.Stdin
+	}
+	if outSet {
+		if !fOverwrite {
+			if _, e := os.Stat(fOutput); e == nil {
+				err = errors.New("output exists, use `-y` to overwrite")
+				return
+			}
+		}
+		output, err = os.Create(fOutput)
+	} else {
+		output = os.Stdout
+	}
+	return
+}
+
+func getPass() ([]byte, error) {
+	if fPass != "" {
+		return []byte(fPass), nil
+	}
+	stdinFd := int(os.Stdin.Fd())
+	printfStderr("enter password: ")
+	bPass, err := term.ReadPassword(stdinFd)
+	if err != nil {
+		return nil, err
+	}
+	printfStderr("\n")
+	if string(bPass) == "" {
+		return nil, errors.New("empty password")
+	}
+	if !fDecrypt {
+		printfStderr("verify password: ")
+		bvPass, err := term.ReadPassword(stdinFd)
+		if err != nil {
+			return nil, err
+		}
+		printfStderr("\n")
+		if string(bPass) != string(bvPass) {
+			return nil, errors.New("password verification failed")
+		}
+	}
+	return bPass, nil
+}
+
+func dbg(mode, keyMd uint16, keyIter int, salt, iv, key []byte) {
+	if !fVerbose {
+		return
+	}
+	printfStderr("Mode\t%d\n", mode)
+	printfStderr("KeyMd\t%d\n", keyMd)
+	printfStderr("KeyIter\t%d\n", keyIter)
+	printfStderr("Salt\t%s\n", hex.EncodeToString(salt))
+	printfStderr("IV\t%s\n", hex.EncodeToString(iv))
+	printfStderr("Key\t%s\n", hex.EncodeToString(key))
+}
+
+func enc(input io.Reader, output io.Writer, pass []byte) error {
+	mode := uint16(fMode)
+	keyMd := uint16(fKeyMd)
+	keyIter := fKeyIter
+	return geheim.Enc(input, output, pass, mode, keyMd, keyIter, dbg)
+}
+
+func dec(input io.Reader, output io.Writer, pass []byte) error {
+	return geheim.Dec(input, output, pass, dbg)
 }
 
 func main() {
@@ -62,112 +152,31 @@ func main() {
 	flag.Parse()
 	inSet, outSet, passSet := flagsSet()
 	if !fDecrypt {
-		checkFlags()
-	}
-	input, output := getIO(inSet, outSet)
-	defer (func() {
-		if err := input.Close(); err != nil {
-			panic(err)
+		if checkErr(geheim.CheckConfig(fMode, fKeyMd, fKeyIter)) {
+			return
 		}
-		if err := output.Close(); err != nil {
-			panic(err)
-		}
-	})()
-	if !passSet && input == os.Stdin {
-		panic(errors.New("password must be specified if stdin is used as input"))
 	}
-	pass := getPass()
-	if fDecrypt {
-		dec(input, output, pass)
-	} else {
-		enc(input, output, pass)
-	}
-}
-
-func getIO(inSet, outSet bool) (input, output *os.File) {
-	if inSet {
-		file, err := os.Open(fInput)
-		if err != nil {
-			panic(err)
-		}
-		if fi, err := file.Stat(); err != nil {
-			panic(err)
-		} else if !fi.Mode().IsRegular() {
-			panic(errors.New("input file is not regular"))
-		}
-		input = file
-	} else {
-		input = os.Stdin
-	}
-	if outSet {
-		if !fOverwrite {
-			if _, err := os.Stat(fOutput); err == nil {
-				panic(errors.New("output exists, use `-y` to overwrite"))
-			}
-		}
-		file, err := os.Create(fOutput)
-		if err != nil {
-			panic(err)
-		}
-		output = file
-	} else {
-		output = os.Stdout
-	}
-	return
-}
-
-func printfStderr(format string, v ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, v...)
-}
-
-func getPass() []byte {
-	if fPass != "" {
-		return []byte(fPass)
-	}
-	stdinFd := int(os.Stdin.Fd())
-	printfStderr("enter password: ")
-	bPass, err := term.ReadPassword(stdinFd)
-	if err != nil {
-		panic(err)
-	}
-	printfStderr("\n")
-	if string(bPass) == "" {
-		panic(errors.New("empty password"))
-	}
-	if fDecrypt {
-		return bPass
-	}
-	printfStderr("verify password: ")
-	bvPass, err := term.ReadPassword(stdinFd)
-	if err != nil {
-		panic(err)
-	}
-	printfStderr("\n")
-	if string(bPass) != string(bvPass) {
-		panic(errors.New("password verification failed"))
-	}
-	return bPass
-}
-
-func dbg(mode, keyMd uint16, keyIter int, salt, iv, key []byte) {
-	if !fVerbose {
+	input, output, err := getIO(inSet, outSet)
+	if checkErr(err) {
 		return
 	}
-	printfStderr("Mode\t%d\n", mode)
-	printfStderr("KeyMd\t%d\n", keyMd)
-	printfStderr("KeyIter\t%d\n", keyIter)
-	printfStderr("Salt\t%s\n", hex.EncodeToString(salt))
-	printfStderr("IV\t%s\n", hex.EncodeToString(iv))
-	printfStderr("Key\t%s\n", hex.EncodeToString(key))
-}
-
-func enc(input io.Reader, output io.Writer, pass []byte) {
-	mode := uint16(fMode)
-	keyMd := uint16(fKeyMd)
-	keyIter := fKeyIter
-	geheim.Enc(input, output, pass, mode, keyMd, keyIter, dbg)
-}
-
-func dec(input io.Reader, output io.Writer, pass []byte) {
-	geheim.Dec(input, output, pass, dbg)
+	defer (func() {
+		errI := input.Close()
+		errO := output.Close()
+		checkErr(errI, errO)
+	})()
+	if !passSet && input == os.Stdin {
+		if checkErr(errors.New("password must be specified if stdin is used as input")) {
+			return
+		}
+	}
+	pass, err := getPass()
+	if checkErr(err) {
+		return
+	}
+	if fDecrypt {
+		checkErr(dec(input, output, pass))
+	} else {
+		checkErr(enc(input, output, pass))
+	}
 }

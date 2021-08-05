@@ -33,9 +33,9 @@ const (
 	DKeyIter = 100000
 )
 
-const ver = uint32(1)
+var gpad = [...]byte{'G', 'H', 'M', '_'}
 
-var ghm_ = [...]byte{'G', 'H', 'M', '_'}
+const ver = uint32(1)
 
 const (
 	sizeSalt = 16
@@ -46,7 +46,7 @@ const (
 var headerByteOrder = binary.BigEndian
 
 type header struct {
-	GHM_        [4]byte
+	GPad        [4]byte
 	Ver         uint32
 	Mode, KeyMd uint16
 	KeyIter     uint32
@@ -54,32 +54,41 @@ type header struct {
 	IV          [sizeIV]byte
 }
 
+func (p *header) verify() error {
+	if !(p.GPad == gpad && p.Ver == ver) {
+		return errors.New("malformed header")
+	}
+	err := CheckConfig(int(p.Mode), int(p.KeyMd), int(p.KeyIter))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *header) read(r io.Reader) error {
+	err := binary.Read(r, headerByteOrder, p)
+	if err != nil {
+		return err
+	}
+	return p.verify()
+}
+
+func (p *header) write(w io.Writer) error {
+	err := p.verify()
+	if err != nil {
+		return err
+	}
+	return binary.Write(w, headerByteOrder, p)
+}
+
 func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *header {
-	h := &header{GHM_: ghm_, Ver: ver, Mode: mode, KeyMd: keyMd, KeyIter: keyIter}
+	h := &header{GPad: gpad, Ver: ver, Mode: mode, KeyMd: keyMd, KeyIter: keyIter}
 	copy(h.Salt[:], salt)
 	copy(h.IV[:], iv)
 	return h
 }
 
-func (p *header) verify() {
-	if err := CheckConfig(int(p.Mode), int(p.KeyMd), int(p.KeyIter)); p.GHM_ != ghm_ || p.Ver != ver || err != nil {
-		panic(errors.New("malformed header"))
-	}
-}
-
-func (p *header) read(r io.Reader) {
-	if err := binary.Read(r, headerByteOrder, p); err != nil {
-		panic(err)
-	}
-	p.verify()
-}
-
-func (p *header) write(w io.Writer) {
-	p.verify()
-	if err := binary.Write(w, headerByteOrder, p); err != nil {
-		panic(err)
-	}
-}
+type dbgFunc func(uint16, uint16, int, []byte, []byte, []byte)
 
 func CheckConfig(mode, keyMd, keyIter int) (err error) {
 	switch mode {
@@ -135,12 +144,8 @@ func getKeyMd(keyMd uint16) func() hash.Hash {
 	return getKeyMd(DKeyMd)
 }
 
-func newCipherBlock(key []byte) cipher.Block {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-	return block
+func newCipherBlock(key []byte) (cipher.Block, error) {
+	return aes.NewCipher(key)
 }
 
 func newCipherStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
@@ -155,66 +160,79 @@ func deriveKey(pass, salt []byte, iter int, md func() hash.Hash) []byte {
 	return pbkdf2.Key(pass, salt, iter, sizeKey, md)
 }
 
-func readBuf(r io.Reader, buf []byte) {
-	if _, err := r.Read(buf); err != nil {
-		panic(err)
-	}
+func readBuf(r io.Reader, buf []byte) (err error) {
+	_, err = r.Read(buf)
+	return
 }
 
-func readRand(buf []byte) {
-	readBuf(rand.Reader, buf)
+func readRand(buf []byte) error {
+	return readBuf(rand.Reader, buf)
 }
 
-func Enc(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbg func(uint16, uint16, int, []byte, []byte, []byte)) {
+func Enc(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbgFn dbgFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
-		err := w.Flush()
-		if err != nil {
-			panic(err)
+		if err == nil {
+			err = w.Flush()
 		}
 	})()
 	salt := make([]byte, sizeSalt)
-	readRand(salt)
-	iv := make([]byte, sizeIV)
-	readRand(iv)
-	dk := deriveKey(pass, salt, keyIter, getKeyMd(keyMd))
-	if dbg != nil {
-		dbg(mode, keyMd, keyIter, salt, iv, dk)
+	err = readRand(salt)
+	if err != nil {
+		return
 	}
-	newHeader(mode, keyMd, uint32(keyIter), salt, iv).write(w)
-	block := newCipherBlock(dk)
+	iv := make([]byte, sizeIV)
+	err = readRand(iv)
+	if err != nil {
+		return
+	}
+	dk := deriveKey(pass, salt, keyIter, getKeyMd(keyMd))
+	if dbgFn != nil {
+		dbgFn(mode, keyMd, keyIter, salt, iv, dk)
+	}
+	err = newHeader(mode, keyMd, uint32(keyIter), salt, iv).write(w)
+	if err != nil {
+		return
+	}
+	block, err := newCipherBlock(dk)
+	if err != nil {
+		return
+	}
 	stream := getCipherStreamMode(mode, false)(block, iv)
 	streamWriter := newCipherStreamWriter(stream, w)
-	if _, err := io.Copy(streamWriter, r); err != nil {
-		panic(err)
-	}
+	_, err = io.Copy(streamWriter, r)
+	return
 }
 
-func Dec(input io.Reader, output io.Writer, pass []byte, dbg func(uint16, uint16, int, []byte, []byte, []byte)) {
+func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn dbgFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
-		err := w.Flush()
-		if err != nil {
-			panic(err)
+		if err == nil {
+			err = w.Flush()
 		}
 	})()
 	header := &header{}
-	header.read(r)
+	err = header.read(r)
+	if err != nil {
+		return
+	}
 	mode := header.Mode
 	keyMd := header.KeyMd
 	keyIter := int(header.KeyIter)
 	salt := header.Salt[:]
 	iv := header.IV[:]
 	dk := deriveKey(pass, salt, keyIter, getKeyMd(keyMd))
-	if dbg != nil {
-		dbg(mode, keyMd, keyIter, salt, iv, dk)
+	if dbgFn != nil {
+		dbgFn(mode, keyMd, keyIter, salt, iv, dk)
 	}
-	block := newCipherBlock(dk)
+	block, err := newCipherBlock(dk)
+	if err != nil {
+		return
+	}
 	stream := getCipherStreamMode(mode, true)(block, iv)
 	streamReader := newCipherStreamReader(stream, r)
-	if _, err := io.Copy(w, streamReader); err != nil {
-		panic(err)
-	}
+	_, err = io.Copy(w, streamReader)
+	return
 }
