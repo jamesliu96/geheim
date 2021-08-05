@@ -58,7 +58,7 @@ func (p *header) verify() error {
 	if !(p.GPad == gpad && p.Ver == ver) {
 		return errors.New("malformed header")
 	}
-	err := CheckConfig(int(p.Mode), int(p.KeyMd), int(p.KeyIter))
+	err := Validate(int(p.Mode), int(p.KeyMd), int(p.KeyIter))
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *head
 
 type DbgFunc func(uint16, uint16, int, []byte, []byte, []byte)
 
-func CheckConfig(mode, keyMd, keyIter int) (err error) {
+func Validate(mode, keyMd, keyIter int) (err error) {
 	switch mode {
 	case int(ModeCTR):
 	case int(ModeCFB):
@@ -235,4 +235,36 @@ func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err err
 	streamReader := newCipherStreamReader(stream, r)
 	_, err = io.Copy(w, streamReader)
 	return
+}
+
+type Encrypter struct {
+	input       io.Reader
+	output      io.Writer
+	pass        []byte
+	mode, keyMd uint16
+	keyIter     int
+	dbgFn       DbgFunc
+}
+
+func (p *Encrypter) Enc() error {
+	return Enc(p.input, p.output, p.pass, p.mode, p.keyMd, p.keyIter, p.dbgFn)
+}
+
+func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbgFn DbgFunc) *Encrypter {
+	return &Encrypter{input, output, pass, mode, keyMd, keyIter, dbgFn}
+}
+
+type Decrypter struct {
+	input  io.Reader
+	output io.Writer
+	pass   []byte
+	dbgFn  DbgFunc
+}
+
+func (p *Encrypter) Dec() error {
+	return Dec(p.input, p.output, p.pass, p.dbgFn)
+}
+
+func NewDecrypter(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) *Decrypter {
+	return &Decrypter{input, output, pass, dbgFn}
 }

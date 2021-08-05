@@ -152,7 +152,7 @@ func main() {
 	flag.Parse()
 	inSet, outSet, passSet := flagsSet()
 	if !fDecrypt {
-		if checkErr(geheim.CheckConfig(fMode, fKeyMd, fKeyIter)) {
+		if checkErr(geheim.Validate(fMode, fKeyMd, fKeyIter)) {
 			return
 		}
 	}
