@@ -35,7 +35,7 @@ const (
 
 const ver = uint32(1)
 
-var ghm_ = [4]byte{'G', 'H', 'M', '_'}
+var ghm_ = [...]byte{'G', 'H', 'M', '_'}
 
 const (
 	sizeSalt = 16
@@ -46,16 +46,15 @@ const (
 var headerByteOrder = binary.BigEndian
 
 type header struct {
-	GHM_    [4]byte
-	Ver     uint32
-	Mode    uint16
-	KeyMd   uint16
-	KeyIter uint32
-	Salt    [sizeSalt]byte
-	IV      [sizeIV]byte
+	GHM_        [4]byte
+	Ver         uint32
+	Mode, KeyMd uint16
+	KeyIter     uint32
+	Salt        [sizeSalt]byte
+	IV          [sizeIV]byte
 }
 
-func newHeader(mode uint16, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *header {
+func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *header {
 	h := &header{GHM_: ghm_, Ver: ver, Mode: mode, KeyMd: keyMd, KeyIter: keyIter}
 	copy(h.Salt[:], salt)
 	copy(h.IV[:], iv)
@@ -63,7 +62,7 @@ func newHeader(mode uint16, keyMd uint16, keyIter uint32, salt []byte, iv []byte
 }
 
 func (p *header) verify() {
-	if err := CheckConfig(int(p.Mode), int(p.KeyMd), int(p.KeyIter)); p.GHM_ != ghm_ || p.Ver != ver || len(p.Salt) != sizeSalt || len(p.IV) != sizeIV || err != nil {
+	if err := CheckConfig(int(p.Mode), int(p.KeyMd), int(p.KeyIter)); p.GHM_ != ghm_ || p.Ver != ver || err != nil {
 		panic(errors.New("malformed header"))
 	}
 }
