@@ -88,7 +88,7 @@ func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *head
 	return h
 }
 
-type dbgFunc func(uint16, uint16, int, []byte, []byte, []byte)
+type DbgFunc func(uint16, uint16, int, []byte, []byte, []byte)
 
 func CheckConfig(mode, keyMd, keyIter int) (err error) {
 	switch mode {
@@ -169,7 +169,7 @@ func readRand(buf []byte) error {
 	return readBuf(rand.Reader, buf)
 }
 
-func Enc(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbgFn dbgFunc) (err error) {
+func Enc(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbgFn DbgFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
@@ -205,7 +205,7 @@ func Enc(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, key
 	return
 }
 
-func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn dbgFunc) (err error) {
+func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
