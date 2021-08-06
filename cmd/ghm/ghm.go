@@ -112,7 +112,7 @@ func getPass() ([]byte, error) {
 	return bPass, nil
 }
 
-func dbg(mode, keyMd uint16, keyIter int, salt, iv, key []byte) {
+func dbg(mode geheim.Mode, keyMd geheim.KeyMD, keyIter int, salt, iv, key []byte) {
 	if !fVerbose {
 		return
 	}
@@ -125,8 +125,8 @@ func dbg(mode, keyMd uint16, keyIter int, salt, iv, key []byte) {
 }
 
 func enc(input io.Reader, output io.Writer, pass []byte) error {
-	mode := uint16(fMode)
-	keyMd := uint16(fKeyMd)
+	mode := geheim.Mode(fMode)
+	keyMd := geheim.KeyMD(fKeyMd)
 	keyIter := fKeyIter
 	return geheim.Enc(input, output, pass, mode, keyMd, keyIter, dbg)
 }
@@ -142,8 +142,8 @@ func main() {
 	flag.StringVar(&fPass, "pass", "", "password (must be specified if `stdin` is used as input)")
 	flag.BoolVar(&fOverwrite, "y", false, "allow overwrite to existing file")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
-	flag.IntVar(&fMode, "m", int(geheim.DMode), "[encrypt] cipher mode (1:CTR, 2:CFB, 4:OFB)")
-	flag.IntVar(&fKeyMd, "md", int(geheim.DKeyMd), "[encrypt] key message digest (1:SHA3-224, 2:SHA3-256, 4:SHA3-384, 8:SHA3-512)")
+	flag.IntVar(&fMode, "m", int(geheim.DMode), "[encrypt] cipher mode (1:CTR, 2:CFB, 3:OFB)")
+	flag.IntVar(&fKeyMd, "md", int(geheim.DKeyMd), "[encrypt] key message digest (1:SHA3-224, 2:SHA3-256, 3:SHA3-384, 4:SHA3-512)")
 	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter, "[encrypt] key iteration (minimum 100000)")
 	if len(os.Args) < 2 {
 		flag.Usage()

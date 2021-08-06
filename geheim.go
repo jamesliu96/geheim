@@ -14,14 +14,18 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+type Mode uint16
+
 const (
-	ModeCTR uint16 = 1 << iota
+	ModeCTR Mode = 1 + iota
 	ModeCFB
 	ModeOFB
 )
 
+type KeyMD uint16
+
 const (
-	Sha3224 uint16 = 1 << iota
+	Sha3224 KeyMD = 1 + iota
 	Sha3256
 	Sha3384
 	Sha3512
@@ -35,7 +39,7 @@ const (
 
 var gpad = [...]byte{'G', 'H', 'M', '_'}
 
-const ver = uint32(1)
+const ver uint32 = 1
 
 const (
 	sizeSalt = 16
@@ -88,7 +92,7 @@ func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *head
 	return h
 }
 
-type DbgFunc func(uint16, uint16, int, []byte, []byte, []byte)
+type DbgFunc func(Mode, KeyMD, int, []byte, []byte, []byte)
 
 func Validate(mode, keyMd, keyIter int) (err error) {
 	switch mode {
@@ -114,7 +118,7 @@ func Validate(mode, keyMd, keyIter int) (err error) {
 	return
 }
 
-func getCipherStreamMode(mode uint16, decrypt bool) func(cipher.Block, []byte) cipher.Stream {
+func getCipherStreamMode(mode Mode, decrypt bool) func(cipher.Block, []byte) cipher.Stream {
 	switch mode {
 	case ModeCTR:
 		return cipher.NewCTR
@@ -130,7 +134,7 @@ func getCipherStreamMode(mode uint16, decrypt bool) func(cipher.Block, []byte) c
 	return getCipherStreamMode(DMode, decrypt)
 }
 
-func getKeyMd(keyMd uint16) func() hash.Hash {
+func getKeyMd(keyMd KeyMD) func() hash.Hash {
 	switch keyMd {
 	case Sha3224:
 		return sha3.New224
@@ -169,7 +173,7 @@ func readRand(buf []byte) error {
 	return readBuf(rand.Reader, buf)
 }
 
-func Enc(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbgFn DbgFunc) (err error) {
+func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMD, keyIter int, dbgFn DbgFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
@@ -191,7 +195,7 @@ func Enc(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, key
 	if dbgFn != nil {
 		dbgFn(mode, keyMd, keyIter, salt, iv, dk)
 	}
-	err = newHeader(mode, keyMd, uint32(keyIter), salt, iv).write(w)
+	err = newHeader(uint16(mode), uint16(keyMd), uint32(keyIter), salt, iv).write(w)
 	if err != nil {
 		return
 	}
@@ -218,8 +222,8 @@ func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err err
 	if err != nil {
 		return
 	}
-	mode := header.Mode
-	keyMd := header.KeyMd
+	mode := Mode(header.Mode)
+	keyMd := KeyMD(header.KeyMd)
 	keyIter := int(header.KeyIter)
 	salt := header.Salt[:]
 	iv := header.IV[:]
@@ -238,19 +242,20 @@ func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err err
 }
 
 type Encrypter struct {
-	Input       io.Reader
-	Output      io.Writer
-	Pass        []byte
-	Mode, KeyMd uint16
-	KeyIter     int
-	DbgFn       DbgFunc
+	Input   io.Reader
+	Output  io.Writer
+	Pass    []byte
+	Mode    Mode
+	KeyMd   KeyMD
+	KeyIter int
+	DbgFn   DbgFunc
 }
 
 func (p *Encrypter) Enc() error {
 	return Enc(p.Input, p.Output, p.Pass, p.Mode, p.KeyMd, p.KeyIter, p.DbgFn)
 }
 
-func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode, keyMd uint16, keyIter int, dbgFn DbgFunc) *Encrypter {
+func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMD, keyIter int, dbgFn DbgFunc) *Encrypter {
 	return &Encrypter{input, output, pass, mode, keyMd, keyIter, dbgFn}
 }
 
