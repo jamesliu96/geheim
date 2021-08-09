@@ -37,7 +37,7 @@ const (
 	DKeyIter = 100000
 )
 
-var pad = [4]byte{'G', 'H', 'M'}
+var pad = [4]byte{'G', 'H', 'M', '_'}
 
 const ver uint32 = 1
 
@@ -92,7 +92,7 @@ func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *head
 	return h
 }
 
-type DbgFunc func(Mode, KeyMd, int, []byte, []byte, []byte)
+type PrintFunc func(Mode, KeyMd, int, []byte, []byte, []byte)
 
 func Validate(mode, keyMd, keyIter int) (err error) {
 	switch mode {
@@ -173,7 +173,7 @@ func readRand(buf []byte) error {
 	return readBuf(rand.Reader, buf)
 }
 
-func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd, keyIter int, dbgFn DbgFunc) (err error) {
+func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd, keyIter int, printFn PrintFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
@@ -192,8 +192,8 @@ func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd,
 		return
 	}
 	dk := deriveKey(pass, salt, keyIter, getKeyMd(keyMd))
-	if dbgFn != nil {
-		dbgFn(mode, keyMd, keyIter, salt, iv, dk)
+	if printFn != nil {
+		printFn(mode, keyMd, keyIter, salt, iv, dk)
 	}
 	err = newHeader(uint16(mode), uint16(keyMd), uint32(keyIter), salt, iv).write(w)
 	if err != nil {
@@ -209,7 +209,7 @@ func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd,
 	return
 }
 
-func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err error) {
+func Dec(input io.Reader, output io.Writer, pass []byte, printFn PrintFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
@@ -228,8 +228,8 @@ func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err err
 	salt := header.Salt[:]
 	iv := header.IV[:]
 	dk := deriveKey(pass, salt, keyIter, getKeyMd(keyMd))
-	if dbgFn != nil {
-		dbgFn(mode, keyMd, keyIter, salt, iv, dk)
+	if printFn != nil {
+		printFn(mode, keyMd, keyIter, salt, iv, dk)
 	}
 	block, err := newCipherBlock(dk)
 	if err != nil {
@@ -248,28 +248,28 @@ type Encrypter struct {
 	Mode    Mode
 	KeyMd   KeyMd
 	KeyIter int
-	DbgFn   DbgFunc
+	PrintFn PrintFunc
 }
 
 func (p *Encrypter) Enc() error {
-	return Enc(p.Input, p.Output, p.Pass, p.Mode, p.KeyMd, p.KeyIter, p.DbgFn)
+	return Enc(p.Input, p.Output, p.Pass, p.Mode, p.KeyMd, p.KeyIter, p.PrintFn)
 }
 
-func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd, keyIter int, dbgFn DbgFunc) *Encrypter {
-	return &Encrypter{input, output, pass, mode, keyMd, keyIter, dbgFn}
+func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd, keyIter int, printFn PrintFunc) *Encrypter {
+	return &Encrypter{input, output, pass, mode, keyMd, keyIter, printFn}
 }
 
 type Decrypter struct {
-	Input  io.Reader
-	Output io.Writer
-	Pass   []byte
-	DbgFn  DbgFunc
+	Input   io.Reader
+	Output  io.Writer
+	Pass    []byte
+	PrintFn PrintFunc
 }
 
 func (p *Decrypter) Dec() error {
-	return Dec(p.Input, p.Output, p.Pass, p.DbgFn)
+	return Dec(p.Input, p.Output, p.Pass, p.PrintFn)
 }
 
-func NewDecrypter(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) *Decrypter {
-	return &Decrypter{input, output, pass, dbgFn}
+func NewDecrypter(input io.Reader, output io.Writer, pass []byte, printFn PrintFunc) *Decrypter {
+	return &Decrypter{input, output, pass, printFn}
 }
