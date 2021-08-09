@@ -37,7 +37,7 @@ const (
 	DKeyIter = 100000
 )
 
-var gpad = [...]byte{'G', 'H', 'M', '_'}
+var pad = [4]byte{'G', 'H', 'M'}
 
 const ver uint32 = 1
 
@@ -50,7 +50,7 @@ const (
 var headerByteOrder binary.ByteOrder = binary.BigEndian
 
 type header struct {
-	GPad        [4]byte
+	Pad         [4]byte
 	Ver         uint32
 	Mode, KeyMd uint16
 	KeyIter     uint32
@@ -59,7 +59,7 @@ type header struct {
 }
 
 func (p *header) verify() error {
-	if !(p.GPad == gpad && p.Ver == ver) {
+	if !(p.Pad == pad && p.Ver == ver) {
 		return errors.New("malformed header")
 	}
 	err := Validate(int(p.Mode), int(p.KeyMd), int(p.KeyIter))
@@ -86,7 +86,7 @@ func (p *header) write(w io.Writer) error {
 }
 
 func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *header {
-	h := &header{GPad: gpad, Ver: ver, Mode: mode, KeyMd: keyMd, KeyIter: keyIter}
+	h := &header{Pad: pad, Ver: ver, Mode: mode, KeyMd: keyMd, KeyIter: keyIter}
 	copy(h.Salt[:], salt)
 	copy(h.IV[:], iv)
 	return h
