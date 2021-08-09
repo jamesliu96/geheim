@@ -22,10 +22,10 @@ const (
 	ModeOFB
 )
 
-type KeyMD uint16
+type KeyMd uint16
 
 const (
-	Sha3224 KeyMD = 1 + iota
+	Sha3224 KeyMd = 1 + iota
 	Sha3256
 	Sha3384
 	Sha3512
@@ -47,7 +47,7 @@ const (
 	sizeKey  = 32
 )
 
-var headerByteOrder = binary.BigEndian
+var headerByteOrder binary.ByteOrder = binary.BigEndian
 
 type header struct {
 	GPad        [4]byte
@@ -92,7 +92,7 @@ func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *head
 	return h
 }
 
-type DbgFunc func(Mode, KeyMD, int, []byte, []byte, []byte)
+type DbgFunc func(Mode, KeyMd, int, []byte, []byte, []byte)
 
 func Validate(mode, keyMd, keyIter int) (err error) {
 	switch mode {
@@ -134,7 +134,7 @@ func getCipherStreamMode(mode Mode, decrypt bool) func(cipher.Block, []byte) cip
 	return getCipherStreamMode(DMode, decrypt)
 }
 
-func getKeyMd(keyMd KeyMD) func() hash.Hash {
+func getKeyMd(keyMd KeyMd) func() hash.Hash {
 	switch keyMd {
 	case Sha3224:
 		return sha3.New224
@@ -173,7 +173,7 @@ func readRand(buf []byte) error {
 	return readBuf(rand.Reader, buf)
 }
 
-func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMD, keyIter int, dbgFn DbgFunc) (err error) {
+func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd, keyIter int, dbgFn DbgFunc) (err error) {
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
@@ -223,7 +223,7 @@ func Dec(input io.Reader, output io.Writer, pass []byte, dbgFn DbgFunc) (err err
 		return
 	}
 	mode := Mode(header.Mode)
-	keyMd := KeyMD(header.KeyMd)
+	keyMd := KeyMd(header.KeyMd)
 	keyIter := int(header.KeyIter)
 	salt := header.Salt[:]
 	iv := header.IV[:]
@@ -246,7 +246,7 @@ type Encrypter struct {
 	Output  io.Writer
 	Pass    []byte
 	Mode    Mode
-	KeyMd   KeyMD
+	KeyMd   KeyMd
 	KeyIter int
 	DbgFn   DbgFunc
 }
@@ -255,7 +255,7 @@ func (p *Encrypter) Enc() error {
 	return Enc(p.Input, p.Output, p.Pass, p.Mode, p.KeyMd, p.KeyIter, p.DbgFn)
 }
 
-func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMD, keyIter int, dbgFn DbgFunc) *Encrypter {
+func NewEncrypter(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd, keyIter int, dbgFn DbgFunc) *Encrypter {
 	return &Encrypter{input, output, pass, mode, keyMd, keyIter, dbgFn}
 }
 
