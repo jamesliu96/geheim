@@ -37,7 +37,7 @@ const (
 	DKeyIter = 100000
 )
 
-var pad = [4]byte{'G', 'H', 'M', '_'}
+var pad = [4]byte{'G', 'H', 'M', 0xff}
 
 const ver uint32 = 1
 
@@ -50,7 +50,7 @@ const (
 var headerByteOrder binary.ByteOrder = binary.BigEndian
 
 type header struct {
-	Pad         [4]byte
+	Pad         [len(pad)]byte
 	Ver         uint32
 	Mode, KeyMd uint16
 	KeyIter     uint32
@@ -78,10 +78,6 @@ func (p *header) read(r io.Reader) error {
 }
 
 func (p *header) write(w io.Writer) error {
-	err := p.verify()
-	if err != nil {
-		return err
-	}
 	return binary.Write(w, headerByteOrder, p)
 }
 
@@ -91,8 +87,6 @@ func newHeader(mode, keyMd uint16, keyIter uint32, salt []byte, iv []byte) *head
 	copy(h.IV[:], iv)
 	return h
 }
-
-type PrintFunc func(Mode, KeyMd, int, []byte, []byte, []byte)
 
 func Validate(mode, keyMd, keyIter int) (err error) {
 	switch mode {
@@ -172,6 +166,8 @@ func readBuf(r io.Reader, buf []byte) (err error) {
 func readRand(buf []byte) error {
 	return readBuf(rand.Reader, buf)
 }
+
+type PrintFunc func(Mode, KeyMd, int, []byte, []byte, []byte)
 
 func Enc(input io.Reader, output io.Writer, pass []byte, mode Mode, keyMd KeyMd, keyIter int, printFn PrintFunc) (err error) {
 	r := bufio.NewReader(input)
