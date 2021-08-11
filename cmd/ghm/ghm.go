@@ -76,7 +76,7 @@ func getIO(inSet, outSet, signSet bool) (input, output, sign *os.File, err error
 	if outSet {
 		if !fOverwrite {
 			if _, e := os.Stat(fOutput); e == nil {
-				err = errors.New("output file exists, use `-y` to overwrite")
+				err = errors.New("output file exists, use -y to overwrite")
 				return
 			}
 		}
@@ -100,7 +100,7 @@ func getIO(inSet, outSet, signSet bool) (input, output, sign *os.File, err error
 		} else {
 			if !fOverwrite {
 				if _, e := os.Stat(fSign); e == nil {
-					err = errors.New("sign file exists, use `-y` to overwrite")
+					err = errors.New("sign file exists, use -y to overwrite")
 					return
 				}
 			}
@@ -191,15 +191,15 @@ func dec(input, output, signInput *os.File, pass []byte) error {
 }
 
 func main() {
-	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if not set)")
-	flag.StringVar(&fInput, "in", "", "input path (default `stdin`)")
-	flag.StringVar(&fOutput, "out", "", "output path (default `stdout`)")
-	flag.StringVar(&fSign, "s", "", "signature path (ignore if not set)")
-	flag.StringVar(&fPass, "pass", "", "password (must be specified if `stdin` is used as input)")
+	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if not specified)")
+	flag.StringVar(&fInput, "in", "", "input path (stdin if not specified)")
+	flag.StringVar(&fOutput, "out", "", "output path (stdout if not specified)")
+	flag.StringVar(&fSign, "s", "", "signature path (ignore if not specified)")
+	flag.StringVar(&fPass, "pass", "", "password (input interactively if not specified)")
 	flag.BoolVar(&fOverwrite, "y", false, "allow overwrite to existing file")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
 	flag.IntVar(&fMode, "m", int(geheim.DMode), fmt.Sprintf("[encrypt] cipher block mode (%d:CTR, %d:CFB, %d:OFB)", geheim.ModeCTR, geheim.ModeCFB, geheim.ModeOFB))
-	flag.IntVar(&fMd, "md", int(geheim.DMd), fmt.Sprintf("[encrypt] key message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", geheim.Sha3224, geheim.Sha3256, geheim.Sha3384, geheim.Sha3512))
+	flag.IntVar(&fMd, "md", int(geheim.DMd), fmt.Sprintf("[encrypt] message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", geheim.Sha3224, geheim.Sha3256, geheim.Sha3384, geheim.Sha3512))
 	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter, fmt.Sprintf("[encrypt] key iteration (minimum %d)", geheim.DKeyIter))
 	if len(os.Args) < 2 {
 		flag.Usage()
@@ -227,7 +227,7 @@ func main() {
 		}
 	})()
 	if !passSet && input == os.Stdin {
-		if checkErr(errors.New("password must be specified if `stdin` is used as input")) {
+		if checkErr(errors.New("password must be specified if stdin is used as input")) {
 			return
 		}
 	}
