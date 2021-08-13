@@ -117,6 +117,19 @@ func ValidateConfigs(mode, md, keyIter int) (err error) {
 	return
 }
 
+func checkArgs(input io.Reader, output io.Writer, pass []byte) error {
+	if input == nil {
+		return errors.New("input is not nilable")
+	}
+	if output == nil {
+		return errors.New("output is not nilable")
+	}
+	if pass == nil {
+		return errors.New("pass is not nilable")
+	}
+	return nil
+}
+
 func getCipherStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {
 	switch mode {
 	case ModeCTR:
@@ -175,6 +188,10 @@ func readRand(buf []byte) error {
 type PrintFunc func(Mode, Md, int, []byte, []byte, []byte)
 
 func Encrypt(input io.Reader, output io.Writer, pass []byte, mode Mode, md Md, keyIter int, printFn PrintFunc) (sign []byte, err error) {
+	err = checkArgs(input, output, pass)
+	if err != nil {
+		return
+	}
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
@@ -218,6 +235,10 @@ func Encrypt(input io.Reader, output io.Writer, pass []byte, mode Mode, md Md, k
 }
 
 func Decrypt(input io.Reader, output io.Writer, pass []byte, printFn PrintFunc) (sign []byte, err error) {
+	err = checkArgs(input, output, pass)
+	if err != nil {
+		return
+	}
 	r := bufio.NewReader(input)
 	w := bufio.NewWriter(output)
 	defer (func() {
