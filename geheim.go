@@ -101,7 +101,7 @@ func ValidateConfigs(mode, md, keyIter int) (err error) {
 	case int(ModeOFB):
 		break
 	default:
-		err = errors.New("invalid cipher mode")
+		err = fmt.Errorf("invalid cipher block mode (%d:CTR, %d:CFB, %d:OFB)", ModeCTR, ModeCFB, ModeOFB)
 	}
 	switch md {
 	case int(Sha3224):
@@ -110,10 +110,10 @@ func ValidateConfigs(mode, md, keyIter int) (err error) {
 	case int(Sha3512):
 		break
 	default:
-		err = errors.New("invalid key message digest")
+		err = fmt.Errorf("invalid message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", Sha3224, Sha3256, Sha3384, Sha3512)
 	}
 	if keyIter < DKeyIter {
-		err = fmt.Errorf("key iteration too few (minimum %d)", DKeyIter)
+		err = fmt.Errorf("invalid key iteration (minimum %d)", DKeyIter)
 	}
 	return
 }
@@ -186,20 +186,13 @@ func readRand(buf []byte) error {
 	return readBuf(rand.Reader, buf)
 }
 
-type PrintFunc func(Mode, Md, int, []byte, []byte, []byte)
+type PrintFunc func(Mode, Md, int, []byte, []byte, []byte) error
 
 func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter int, printFn PrintFunc) (sign []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
 	}
-	r := bufio.NewReader(in)
-	w := bufio.NewWriter(out)
-	defer (func() {
-		if err == nil {
-			err = w.Flush()
-		}
-	})()
 	salt := make([]byte, sizeSalt)
 	err = readRand(salt)
 	if err != nil {
@@ -214,8 +207,18 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter
 	mdfn, md := getMd(md)
 	dk := deriveKey(pass, salt, keyIter, mdfn)
 	if printFn != nil {
-		printFn(mode, md, keyIter, salt, iv, dk)
+		err = printFn(mode, md, keyIter, salt, iv, dk)
+		if err != nil {
+			return
+		}
 	}
+	r := bufio.NewReader(in)
+	w := bufio.NewWriter(out)
+	defer (func() {
+		if err == nil {
+			err = w.Flush()
+		}
+	})()
 	err = newHeader(uint16(mode), uint16(md), uint32(keyIter), salt, iv).write(w)
 	if err != nil {
 		return
@@ -241,12 +244,6 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 		return
 	}
 	r := bufio.NewReader(in)
-	w := bufio.NewWriter(out)
-	defer (func() {
-		if err == nil {
-			err = w.Flush()
-		}
-	})()
 	header := &header{}
 	err = header.read(r)
 	if err != nil {
@@ -261,8 +258,17 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	mdfn, md := getMd(md)
 	dk := deriveKey(pass, salt, keyIter, mdfn)
 	if printFn != nil {
-		printFn(mode, md, keyIter, salt, iv, dk)
+		err = printFn(mode, md, keyIter, salt, iv, dk)
+		if err != nil {
+			return
+		}
 	}
+	w := bufio.NewWriter(out)
+	defer (func() {
+		if err == nil {
+			err = w.Flush()
+		}
+	})()
 	block, err := newCipherBlock(dk)
 	if err != nil {
 		return
@@ -278,7 +284,9 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	return
 }
 
-var VerifySign = hmac.Equal
+func VerifySign(a, b []byte) bool {
+	return hmac.Equal(a, b)
+}
 
 type Encrypter struct {
 	In      io.Reader
@@ -294,21 +302,39 @@ func (p *Encrypter) Encrypt() ([]byte, error) {
 	return Encrypt(p.In, p.Out, p.Pass, p.Mode, p.Md, p.KeyIter, p.PrintFn)
 }
 
-func NewEncrypter(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter int, printFn PrintFunc) *Encrypter {
-	return &Encrypter{in, out, pass, mode, md, keyIter, printFn}
+func NewEncrypter(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter int, printFn PrintFunc) (*Encrypter, error) {
+	err := checkArgs(in, out, pass)
+	if err != nil {
+		return nil, err
+	}
+	return &Encrypter{in, out, pass, mode, md, keyIter, printFn}, nil
 }
 
 type Decrypter struct {
 	In      io.Reader
 	Out     io.Writer
 	Pass    []byte
+	Sign    []byte
 	PrintFn PrintFunc
 }
 
-func (p *Decrypter) Decrypt() ([]byte, error) {
-	return Decrypt(p.In, p.Out, p.Pass, p.PrintFn)
+func (p *Decrypter) Decrypt() (sign []byte, err error) {
+	sign, err = Decrypt(p.In, p.Out, p.Pass, p.PrintFn)
+	if err != nil {
+		return
+	}
+	if p.Sign != nil {
+		if !VerifySign(p.Sign, sign) {
+			err = errors.New("signature verification failed")
+		}
+	}
+	return
 }
 
-func NewDecrypter(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) *Decrypter {
-	return &Decrypter{in, out, pass, printFn}
+func NewDecrypter(in io.Reader, out io.Writer, pass []byte, sign []byte, printFn PrintFunc) (*Decrypter, error) {
+	err := checkArgs(in, out, pass)
+	if err != nil {
+		return nil, err
+	}
+	return &Decrypter{in, out, pass, sign, printFn}, nil
 }

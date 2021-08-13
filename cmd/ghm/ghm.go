@@ -142,16 +142,30 @@ func getPass() ([]byte, error) {
 	return bPass, nil
 }
 
-func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
+var modeNames = map[geheim.Mode]string{
+	geheim.ModeCTR: "CTR",
+	geheim.ModeCFB: "CFB",
+	geheim.ModeOFB: "OFB",
+}
+
+var mdNames = map[geheim.Md]string{
+	geheim.Sha3224: "SHA3-224",
+	geheim.Sha3256: "SHA3-256",
+	geheim.Sha3384: "SHA3-384",
+	geheim.Sha3512: "SHA3-512",
+}
+
+func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) (err error) {
 	if !fVerbose {
 		return
 	}
-	printfStderr("Mode\t%d\n", mode)
-	printfStderr("Md\t%d\n", md)
+	printfStderr("Mode\t%s(%d)\n", modeNames[mode], mode)
+	printfStderr("Md\t%s(%d)\n", mdNames[md], md)
 	printfStderr("KeyIter\t%d\n", keyIter)
 	printfStderr("Salt\t%x\n", salt)
 	printfStderr("IV\t%x\n", iv)
 	printfStderr("Key\t%x\n", key)
+	return
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
@@ -171,27 +185,29 @@ func enc(in, out, signOut *os.File, pass []byte) (err error) {
 	return
 }
 
-func dec(in, out, signIn *os.File, pass []byte) error {
-	sign, err := geheim.Decrypt(in, out, pass, dbg)
+func dec(in, out, signIn *os.File, pass []byte) (err error) {
+	var vSign []byte
+	if signIn != nil {
+		vSign, err = io.ReadAll(signIn)
+		if err != nil {
+			return
+		}
+		if fVerbose {
+			printfStderr("VSign\t%x\n", vSign)
+		}
+	}
+	decrypter, err := geheim.NewDecrypter(in, out, pass, vSign, dbg)
 	if err != nil {
-		return err
+		return
+	}
+	sign, err := decrypter.Decrypt()
+	if err != nil {
+		return
 	}
 	if fVerbose {
 		printfStderr("Sign\t%x\n", sign)
 	}
-	if signIn != nil {
-		vSign, err := io.ReadAll(signIn)
-		if fVerbose {
-			printfStderr("VSign\t%x\n", vSign)
-		}
-		if err != nil {
-			return err
-		}
-		if !geheim.VerifySign(vSign, sign) {
-			return errors.New("signature verification failed")
-		}
-	}
-	return nil
+	return
 }
 
 func main() {
