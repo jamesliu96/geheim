@@ -11,8 +11,8 @@ import (
 	"golang.org/x/term"
 )
 
-var gitTag = "tag"
-var gitRev = "rev"
+var gitTag = "*"
+var gitRev = "*"
 
 var (
 	fDecrypt   bool
