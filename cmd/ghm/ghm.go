@@ -11,6 +11,9 @@ import (
 	"golang.org/x/term"
 )
 
+var gitTag = "tag"
+var gitRev = "rev"
+
 var (
 	fDecrypt   bool
 	fMode      int
@@ -22,6 +25,7 @@ var (
 	fPass      string
 	fOverwrite bool
 	fVerbose   bool
+	fVersion   bool
 )
 
 func flagsSet() (inSet, outSet, signSet, passSet bool) {
@@ -191,13 +195,14 @@ func dec(in, out, signIn *os.File, pass []byte) error {
 }
 
 func main() {
-	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if omitted)")
 	flag.StringVar(&fIn, "in", "", "`input` path (default: `stdin`)")
 	flag.StringVar(&fOut, "out", "", "`output` path (default: `stdout`)")
 	flag.StringVar(&fSign, "s", "", "`signature` path (bypass if omitted)")
 	flag.StringVar(&fPass, "pass", "", "`passphrase` (must be specified if `stdin` is used as input)")
 	flag.BoolVar(&fOverwrite, "y", false, "allow overwrite to existing file")
+	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if omitted)")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
+	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.IntVar(&fMode, "m", int(geheim.DMode), fmt.Sprintf("[encryption] cipher block mode (%d:CTR, %d:CFB, %d:OFB)", geheim.ModeCTR, geheim.ModeCFB, geheim.ModeOFB))
 	flag.IntVar(&fMd, "md", int(geheim.DMd), fmt.Sprintf("[encryption] message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", geheim.Sha3224, geheim.Sha3256, geheim.Sha3384, geheim.Sha3512))
 	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter, fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DKeyIter))
@@ -208,6 +213,10 @@ func main() {
 	flag.Parse()
 	if flag.NArg() != 0 {
 		flag.Usage()
+		return
+	}
+	if fVersion {
+		printfStderr("ghm %s (%s)\n", gitTag, gitRev)
 		return
 	}
 	if !fDecrypt {
