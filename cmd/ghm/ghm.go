@@ -16,8 +16,8 @@ var (
 	fMode      int
 	fMd        int
 	fKeyIter   int
-	fInput     string
-	fOutput    string
+	fIn        string
+	fOut       string
 	fSign      string
 	fPass      string
 	fOverwrite bool
@@ -57,32 +57,32 @@ func checkErr(errs ...error) (gotErr bool) {
 	return
 }
 
-func getIO(inSet, outSet, signSet bool) (input, output, sign *os.File, err error) {
+func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	if inSet {
-		input, err = os.Open(fInput)
+		in, err = os.Open(fIn)
 		if err != nil {
 			return
 		}
-		if fi, e := input.Stat(); e != nil {
+		if fi, e := in.Stat(); e != nil {
 			err = e
 			return
 		} else if !fi.Mode().IsRegular() {
-			err = errors.New("input file is not regular")
+			err = fmt.Errorf("input file `%s` is not regular", fIn)
 			return
 		}
 	} else {
-		input = os.Stdin
+		in = os.Stdin
 	}
 	if outSet {
 		if !fOverwrite {
-			if _, e := os.Stat(fOutput); e == nil {
-				err = errors.New("output file exists, use -y to overwrite")
+			if _, e := os.Stat(fOut); e == nil {
+				err = fmt.Errorf("output file `%s` exists, use -y to overwrite", fOut)
 				return
 			}
 		}
-		output, err = os.Create(fOutput)
+		out, err = os.Create(fOut)
 	} else {
-		output = os.Stdout
+		out = os.Stdout
 	}
 	if signSet {
 		if fDecrypt {
@@ -94,13 +94,13 @@ func getIO(inSet, outSet, signSet bool) (input, output, sign *os.File, err error
 				err = e
 				return
 			} else if !fi.Mode().IsRegular() {
-				err = errors.New("sign file is not regular")
+				err = fmt.Errorf("signature file `%s` is not regular", fSign)
 				return
 			}
 		} else {
 			if !fOverwrite {
 				if _, e := os.Stat(fSign); e == nil {
-					err = errors.New("sign file exists, use -y to overwrite")
+					err = fmt.Errorf("signature file `%s` exists, use -y to overwrite", fSign)
 					return
 				}
 			}
@@ -115,24 +115,24 @@ func getPass() ([]byte, error) {
 		return []byte(fPass), nil
 	}
 	stdinFd := int(os.Stdin.Fd())
-	printfStderr("enter password: ")
+	printfStderr("enter passphrase: ")
 	bPass, err := term.ReadPassword(stdinFd)
 	if err != nil {
 		return nil, err
 	}
 	printfStderr("\n")
 	if string(bPass) == "" {
-		return nil, errors.New("empty password")
+		return nil, errors.New("empty passphrase")
 	}
 	if !fDecrypt {
-		printfStderr("verify password: ")
+		printfStderr("verify passphrase: ")
 		bvPass, err := term.ReadPassword(stdinFd)
 		if err != nil {
 			return nil, err
 		}
 		printfStderr("\n")
 		if string(bPass) != string(bvPass) {
-			return nil, errors.New("password verification failed")
+			return nil, errors.New("passphrase verification failed")
 		}
 	}
 	return bPass, nil
@@ -150,40 +150,40 @@ func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
 	printfStderr("Key\t%x\n", key)
 }
 
-func enc(input, output, signOutput *os.File, pass []byte) (err error) {
+func enc(in, out, signOut *os.File, pass []byte) (err error) {
 	mode := geheim.Mode(fMode)
 	md := geheim.Md(fMd)
 	keyIter := fKeyIter
-	sign, err := geheim.Encrypt(input, output, pass, mode, md, keyIter, dbg)
+	sign, err := geheim.Encrypt(in, out, pass, mode, md, keyIter, dbg)
 	if err != nil {
 		return
 	}
 	if fVerbose {
 		printfStderr("Sign\t%x\n", sign)
 	}
-	if signOutput != nil {
-		_, err = signOutput.Write(sign)
+	if signOut != nil {
+		_, err = signOut.Write(sign)
 	}
 	return
 }
 
-func dec(input, output, signInput *os.File, pass []byte) error {
-	sign, err := geheim.Decrypt(input, output, pass, dbg)
+func dec(in, out, signIn *os.File, pass []byte) error {
+	sign, err := geheim.Decrypt(in, out, pass, dbg)
 	if err != nil {
 		return err
 	}
 	if fVerbose {
 		printfStderr("Sign\t%x\n", sign)
 	}
-	if signInput != nil {
-		eSign, err := io.ReadAll(signInput)
+	if signIn != nil {
+		vSign, err := io.ReadAll(signIn)
 		if fVerbose {
-			printfStderr("ESign\t%x\n", eSign)
+			printfStderr("VSign\t%x\n", vSign)
 		}
 		if err != nil {
 			return err
 		}
-		if !geheim.VerifySign(eSign, sign) {
+		if !geheim.VerifySign(vSign, sign) {
 			return errors.New("signature verification failed")
 		}
 	}
@@ -191,33 +191,42 @@ func dec(input, output, signInput *os.File, pass []byte) error {
 }
 
 func main() {
-	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if not specified)")
-	flag.StringVar(&fInput, "in", "", "input path (stdin if not specified)")
-	flag.StringVar(&fOutput, "out", "", "output path (stdout if not specified)")
-	flag.StringVar(&fSign, "s", "", "signature path (ignore if not specified)")
-	flag.StringVar(&fPass, "pass", "", "password (input interactively if not specified)")
+	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if omitted)")
+	flag.StringVar(&fIn, "in", "", "`input` path (default: `stdin`)")
+	flag.StringVar(&fOut, "out", "", "`output` path (default: `stdout`)")
+	flag.StringVar(&fSign, "s", "", "`signature` path (bypass if omitted)")
+	flag.StringVar(&fPass, "pass", "", "`passphrase` (must be specified if `stdin` is used as input)")
 	flag.BoolVar(&fOverwrite, "y", false, "allow overwrite to existing file")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
-	flag.IntVar(&fMode, "m", int(geheim.DMode), fmt.Sprintf("[encrypt] cipher block mode (%d:CTR, %d:CFB, %d:OFB)", geheim.ModeCTR, geheim.ModeCFB, geheim.ModeOFB))
-	flag.IntVar(&fMd, "md", int(geheim.DMd), fmt.Sprintf("[encrypt] message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", geheim.Sha3224, geheim.Sha3256, geheim.Sha3384, geheim.Sha3512))
-	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter, fmt.Sprintf("[encrypt] key iteration (minimum %d)", geheim.DKeyIter))
-	if len(os.Args) < 2 {
+	flag.IntVar(&fMode, "m", int(geheim.DMode), fmt.Sprintf("[encryption] cipher block mode (%d:CTR, %d:CFB, %d:OFB)", geheim.ModeCTR, geheim.ModeCFB, geheim.ModeOFB))
+	flag.IntVar(&fMd, "md", int(geheim.DMd), fmt.Sprintf("[encryption] message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", geheim.Sha3224, geheim.Sha3256, geheim.Sha3384, geheim.Sha3512))
+	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter, fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DKeyIter))
+	if len(os.Args) == 1 {
 		flag.Usage()
 		return
 	}
 	flag.Parse()
-	inSet, outSet, signSet, passSet := flagsSet()
+	if flag.NArg() != 0 {
+		flag.Usage()
+		return
+	}
 	if !fDecrypt {
 		if checkErr(geheim.ValidateConfigs(fMode, fMd, fKeyIter)) {
 			return
 		}
 	}
-	input, output, sign, err := getIO(inSet, outSet, signSet)
+	inSet, outSet, signSet, passSet := flagsSet()
+	if !passSet && !inSet {
+		if checkErr(errors.New("passphrase must be specified if `stdin` is used as input")) {
+			return
+		}
+	}
+	in, out, sign, err := getIO(inSet, outSet, signSet)
 	if checkErr(err) {
 		return
 	}
 	defer (func() {
-		if checkErr(input.Close(), output.Close()) {
+		if checkErr(in.Close(), out.Close()) {
 			return
 		}
 		if sign != nil {
@@ -226,18 +235,13 @@ func main() {
 			}
 		}
 	})()
-	if !passSet && input == os.Stdin {
-		if checkErr(errors.New("password must be specified if stdin is used as input")) {
-			return
-		}
-	}
 	pass, err := getPass()
 	if checkErr(err) {
 		return
 	}
 	if fDecrypt {
-		checkErr(dec(input, output, sign, pass))
+		checkErr(dec(in, out, sign, pass))
 	} else {
-		checkErr(enc(input, output, sign, pass))
+		checkErr(enc(in, out, sign, pass))
 	}
 }
