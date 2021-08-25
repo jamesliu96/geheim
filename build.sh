@@ -6,7 +6,7 @@ rm -rf build
 
 tag=$(git describe --tags --always)
 rev=$(git rev-list -1 HEAD)
-ldflags="-X main.gitTag=$tag -X main.gitRev=$rev"
+ldflags="-X main.app=ghm -X main.gitTag=$tag -X main.gitRev=$rev"
 pkg=github.com/jamesliu96/geheim/cmd/ghm
 osarchs=(
   "linux amd64"
@@ -16,7 +16,6 @@ osarchs=(
   "darwin amd64"
   "darwin arm64"
   "windows amd64"
-  # "windows arm64" # go 1.17
 )
 
 for i in "${osarchs[@]}"; do

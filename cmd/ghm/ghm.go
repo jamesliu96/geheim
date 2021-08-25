@@ -11,6 +11,8 @@ import (
 	"golang.org/x/term"
 )
 
+var app = "ghm"
+
 var gitTag = "*"
 var gitRev = "*"
 
@@ -168,6 +170,11 @@ func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) (err
 	return
 }
 
+func printUsage() {
+	printfStderr("usage of %s:\n", app)
+	flag.PrintDefaults()
+}
+
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
 	mode := geheim.Mode(fMode)
 	md := geheim.Md(fMd)
@@ -219,20 +226,37 @@ func main() {
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if omitted)")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
 	flag.BoolVar(&fVersion, "V", false, "print version")
-	flag.IntVar(&fMode, "m", int(geheim.DMode), fmt.Sprintf("[encryption] cipher block mode (%d:CTR, %d:CFB, %d:OFB)", geheim.ModeCTR, geheim.ModeCFB, geheim.ModeOFB))
-	flag.IntVar(&fMd, "md", int(geheim.DMd), fmt.Sprintf("[encryption] message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", geheim.Sha3224, geheim.Sha3256, geheim.Sha3384, geheim.Sha3512))
-	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter, fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DKeyIter))
-	if len(os.Args) == 1 {
-		flag.Usage()
+	flag.IntVar(&fMode, "m", int(geheim.DMode),
+		fmt.Sprintf(
+			"[encryption] cipher block mode (%d:%s, %d:%s, %d:%s)",
+			geheim.ModeCTR, modeNames[geheim.ModeCTR],
+			geheim.ModeCFB, modeNames[geheim.ModeCFB],
+			geheim.ModeOFB, modeNames[geheim.ModeOFB],
+		),
+	)
+	flag.IntVar(&fMd, "md", int(geheim.DMd),
+		fmt.Sprintf(
+			"[encryption] message digest (%d:%s, %d:%s, %d:%s, %d:%s)",
+			geheim.Sha3224, mdNames[geheim.Sha3224],
+			geheim.Sha3256, mdNames[geheim.Sha3256],
+			geheim.Sha3384, mdNames[geheim.Sha3384],
+			geheim.Sha3512, mdNames[geheim.Sha3512],
+		),
+	)
+	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter,
+		fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DKeyIter),
+	)
+	if len(os.Args) <= 1 {
+		printUsage()
 		return
 	}
 	flag.Parse()
 	if flag.NArg() != 0 {
-		flag.Usage()
+		printUsage()
 		return
 	}
 	if fVersion {
-		printfStderr("ghm %s (%s)\n", gitTag, gitRev)
+		printfStderr("%s %s (%s)\n", app, gitTag, gitRev)
 		return
 	}
 	if !fDecrypt {
