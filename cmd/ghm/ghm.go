@@ -116,8 +116,8 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
-func getPass() ([]byte, error) {
-	if fPass != "" {
+func getPass(passSet bool) ([]byte, error) {
+	if passSet {
 		return []byte(fPass), nil
 	}
 	stdinFd := int(os.Stdin.Fd())
@@ -284,7 +284,7 @@ func main() {
 			}
 		}
 	})()
-	pass, err := getPass()
+	pass, err := getPass(passSet)
 	if checkErr(err) {
 		return
 	}
