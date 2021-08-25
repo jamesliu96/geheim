@@ -10,6 +10,7 @@ ldflags="-X main.gitTag=$tag -X main.gitRev=$rev"
 pkg=github.com/jamesliu96/geheim/cmd/ghm
 osarchs=(
   "linux amd64"
+  "linux arm64"
   "android arm64"
   "js wasm"
   "darwin amd64"
