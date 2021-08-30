@@ -144,25 +144,12 @@ func getPass(passSet bool) ([]byte, error) {
 	return bPass, nil
 }
 
-var modeNames = map[geheim.Mode]string{
-	geheim.ModeCTR: "CTR",
-	geheim.ModeCFB: "CFB",
-	geheim.ModeOFB: "OFB",
-}
-
-var mdNames = map[geheim.Md]string{
-	geheim.Sha3224: "SHA3-224",
-	geheim.Sha3256: "SHA3-256",
-	geheim.Sha3384: "SHA3-384",
-	geheim.Sha3512: "SHA3-512",
-}
-
 func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) (err error) {
 	if !fVerbose {
 		return
 	}
-	printfStderr("Mode\t%s(%d)\n", modeNames[mode], mode)
-	printfStderr("Md\t%s(%d)\n", mdNames[md], md)
+	printfStderr("Mode\t%s(%d)\n", geheim.ModeNames[mode], mode)
+	printfStderr("Md\t%s(%d)\n", geheim.MdNames[md], md)
 	printfStderr("KeyIter\t%d\n", keyIter)
 	printfStderr("Salt\t%x\n", salt)
 	printfStderr("IV\t%x\n", iv)
@@ -227,21 +214,10 @@ func main() {
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
 	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.IntVar(&fMode, "m", int(geheim.DMode),
-		fmt.Sprintf(
-			"[encryption] cipher block mode (%d:%s, %d:%s, %d:%s)",
-			geheim.ModeCTR, modeNames[geheim.ModeCTR],
-			geheim.ModeCFB, modeNames[geheim.ModeCFB],
-			geheim.ModeOFB, modeNames[geheim.ModeOFB],
-		),
+		fmt.Sprintf("[encryption] cipher block mode (%s)", geheim.GetModeString()),
 	)
 	flag.IntVar(&fMd, "md", int(geheim.DMd),
-		fmt.Sprintf(
-			"[encryption] message digest (%d:%s, %d:%s, %d:%s, %d:%s)",
-			geheim.Sha3224, mdNames[geheim.Sha3224],
-			geheim.Sha3256, mdNames[geheim.Sha3256],
-			geheim.Sha3384, mdNames[geheim.Sha3384],
-			geheim.Sha3512, mdNames[geheim.Sha3512],
-		),
+		fmt.Sprintf("[encryption] message digest (%s)", geheim.GetMdString()),
 	)
 	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter,
 		fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DKeyIter),

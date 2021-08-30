@@ -6,11 +6,14 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash"
 	"io"
+	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/sha3"
@@ -24,24 +27,70 @@ const (
 	ModeOFB
 )
 
+var ModeNames = map[Mode]string{
+	ModeCTR: "CTR",
+	ModeCFB: "CFB",
+	ModeOFB: "OFB",
+}
+
+var modes = [...]Mode{ModeCTR, ModeCFB, ModeOFB}
+
+func GetModeString() string {
+	d := []string{}
+	for _, mode := range modes {
+		d = append(d, fmt.Sprintf("%d:%s", mode, ModeNames[mode]))
+	}
+	return strings.Join(d, ", ")
+}
+
 type Md uint16
 
 const (
-	Sha3224 Md = 1 + iota
-	Sha3256
-	Sha3384
-	Sha3512
+	SHA3_224 Md = 1 + iota
+	SHA3_256
+	SHA3_384
+	SHA3_512
+	SHA_224
+	SHA_256
+	SHA_384
+	SHA_512
+	SHA_512_224
+	SHA_512_256
 )
+
+var MdNames = map[Md]string{
+	SHA3_224:    "SHA3-224",
+	SHA3_256:    "SHA3-256",
+	SHA3_384:    "SHA3-384",
+	SHA3_512:    "SHA3-512",
+	SHA_224:     "SHA-224",
+	SHA_256:     "SHA-256",
+	SHA_384:     "SHA-384",
+	SHA_512:     "SHA-512",
+	SHA_512_224: "SHA-512-224",
+	SHA_512_256: "SHA-512-256",
+}
+
+var mds = [...]Md{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256}
+
+func GetMdString() string {
+	d := []string{}
+	for _, md := range mds {
+		d = append(d, fmt.Sprintf("%d:%s", md, MdNames[md]))
+	}
+	return strings.Join(d, ", ")
+}
 
 const (
 	DMode    = ModeCTR
-	DMd      = Sha3224
+	DMd      = SHA_256
 	DKeyIter = 100000
 )
 
-var pad = [4]byte{'G', 'H', 'M', 0xff}
-
-const ver uint32 = 1
+const (
+	pad uint32 = 0x47484DFF
+	ver uint32 = 0x00000001
+)
 
 const (
 	sizeSalt = 16
@@ -52,7 +101,7 @@ const (
 var headerByteOrder binary.ByteOrder = binary.BigEndian
 
 type header struct {
-	Pad      [len(pad)]byte
+	Pad      uint32
 	Ver      uint32
 	Mode, Md uint16
 	KeyIter  uint32
@@ -101,16 +150,22 @@ func ValidateConfigs(mode, md, keyIter int) (err error) {
 	case int(ModeOFB):
 		break
 	default:
-		err = fmt.Errorf("invalid cipher block mode (%d:CTR, %d:CFB, %d:OFB)", ModeCTR, ModeCFB, ModeOFB)
+		err = fmt.Errorf("invalid cipher block mode (%s)", GetModeString())
 	}
 	switch md {
-	case int(Sha3224):
-	case int(Sha3256):
-	case int(Sha3384):
-	case int(Sha3512):
+	case int(SHA3_224):
+	case int(SHA3_256):
+	case int(SHA3_384):
+	case int(SHA3_512):
+	case int(SHA_224):
+	case int(SHA_256):
+	case int(SHA_384):
+	case int(SHA_512):
+	case int(SHA_512_224):
+	case int(SHA_512_256):
 		break
 	default:
-		err = fmt.Errorf("invalid message digest (%d:SHA3-224, %d:SHA3-256, %d:SHA3-384, %d:SHA3-512)", Sha3224, Sha3256, Sha3384, Sha3512)
+		err = fmt.Errorf("invalid message digest (%s)", GetMdString())
 	}
 	if keyIter < DKeyIter {
 		err = fmt.Errorf("invalid key iteration (minimum %d)", DKeyIter)
@@ -149,14 +204,26 @@ func getCipherStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) ci
 
 func getMd(md Md) (func() hash.Hash, Md) {
 	switch md {
-	case Sha3224:
-		return sha3.New224, Sha3224
-	case Sha3256:
-		return sha3.New256, Sha3256
-	case Sha3384:
-		return sha3.New384, Sha3384
-	case Sha3512:
-		return sha3.New512, Sha3512
+	case SHA3_224:
+		return sha3.New224, SHA3_224
+	case SHA3_256:
+		return sha3.New256, SHA3_256
+	case SHA3_384:
+		return sha3.New384, SHA3_384
+	case SHA3_512:
+		return sha3.New512, SHA3_512
+	case SHA_224:
+		return sha256.New224, SHA_224
+	case SHA_256:
+		return sha256.New, SHA_256
+	case SHA_384:
+		return sha512.New384, SHA_384
+	case SHA_512:
+		return sha512.New, SHA_512
+	case SHA_512_224:
+		return sha512.New512_224, SHA_512_224
+	case SHA_512_256:
+		return sha512.New512_256, SHA_512_256
 	}
 	return getMd(DMd)
 }
