@@ -9,14 +9,13 @@ rev=$(git rev-list -1 HEAD)
 ldflags="-X main.app=ghm -X main.gitTag=$tag -X main.gitRev=$rev"
 pkg=github.com/jamesliu96/geheim/cmd/ghm
 osarchs=(
-  "linux amd64"
-  "linux arm64"
-  "android arm64"
-  "js wasm"
   "darwin amd64"
   "darwin arm64"
+  "linux amd64"
+  "linux arm64"
   "windows amd64"
   "windows arm64"
+  "js wasm"
 )
 
 for i in "${osarchs[@]}"; do
