@@ -116,16 +116,13 @@ func (p *header) verify() error {
 	return nil
 }
 
-func (p *header) read(r io.Reader) error {
-	err := binary.Read(r, headerByteOrder, p)
+func (p *header) read(r io.Reader) (err error) {
+	err = binary.Read(r, headerByteOrder, p)
 	if err != nil {
-		return err
+		return
 	}
 	err = p.verify()
-	if err != nil {
-		return err
-	}
-	return ValidateConfigs(int(p.Mode), int(p.Md), int(p.KeyIter))
+	return
 }
 
 func (p *header) write(w io.Writer) error {
@@ -143,26 +140,26 @@ func newHeader(mode, md uint16, keyIter uint32, salt []byte, iv []byte) *header 
 	return h
 }
 
-func ValidateConfigs(mode, md, keyIter int) (err error) {
+func ValidateConfigs(mode Mode, md Md, keyIter int) (err error) {
 	switch mode {
-	case int(ModeCTR):
-	case int(ModeCFB):
-	case int(ModeOFB):
+	case ModeCTR:
+	case ModeCFB:
+	case ModeOFB:
 		break
 	default:
 		err = fmt.Errorf("invalid cipher block mode (%s)", GetModeString())
 	}
 	switch md {
-	case int(SHA3_224):
-	case int(SHA3_256):
-	case int(SHA3_384):
-	case int(SHA3_512):
-	case int(SHA_224):
-	case int(SHA_256):
-	case int(SHA_384):
-	case int(SHA_512):
-	case int(SHA_512_224):
-	case int(SHA_512_256):
+	case SHA3_224:
+	case SHA3_256:
+	case SHA3_384:
+	case SHA3_512:
+	case SHA_224:
+	case SHA_256:
+	case SHA_384:
+	case SHA_512:
+	case SHA_512_224:
+	case SHA_512_256:
 		break
 	default:
 		err = fmt.Errorf("invalid message digest (%s)", GetMdString())
@@ -244,19 +241,19 @@ func deriveKey(pass, salt []byte, iter int, md func() hash.Hash) []byte {
 	return pbkdf2.Key(pass, salt, iter, sizeKey, md)
 }
 
-func readBuf(r io.Reader, buf []byte) (err error) {
-	_, err = r.Read(buf)
+func readRand(buf []byte) (err error) {
+	_, err = rand.Reader.Read(buf)
 	return
 }
 
-func readRand(buf []byte) error {
-	return readBuf(rand.Reader, buf)
-}
-
-type PrintFunc func(Mode, Md, int, []byte, []byte, []byte) error
+type PrintFunc func(Mode, Md, int, []byte, []byte, []byte)
 
 func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter int, printFn PrintFunc) (sign []byte, err error) {
 	err = checkArgs(in, out, pass)
+	if err != nil {
+		return
+	}
+	err = ValidateConfigs(mode, md, keyIter)
 	if err != nil {
 		return
 	}
@@ -274,10 +271,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter
 	mdfn, md := getMd(md)
 	dk := deriveKey(pass, salt, keyIter, mdfn)
 	if printFn != nil {
-		err = printFn(mode, md, keyIter, salt, iv, dk)
-		if err != nil {
-			return
-		}
+		printFn(mode, md, keyIter, salt, iv, dk)
 	}
 	r := bufio.NewReader(in)
 	w := bufio.NewWriter(out)
@@ -319,16 +313,17 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	mode := Mode(header.Mode)
 	md := Md(header.Md)
 	keyIter := int(header.KeyIter)
+	err = ValidateConfigs(mode, md, keyIter)
+	if err != nil {
+		return
+	}
 	salt := header.Salt[:]
 	iv := header.IV[:]
 	sm, mode := getCipherStreamMode(mode, true)
 	mdfn, md := getMd(md)
 	dk := deriveKey(pass, salt, keyIter, mdfn)
 	if printFn != nil {
-		err = printFn(mode, md, keyIter, salt, iv, dk)
-		if err != nil {
-			return
-		}
+		printFn(mode, md, keyIter, salt, iv, dk)
 	}
 	w := bufio.NewWriter(out)
 	defer (func() {
@@ -355,53 +350,15 @@ func VerifySign(a, b []byte) bool {
 	return hmac.Equal(a, b)
 }
 
-type Encrypter struct {
-	In      io.Reader
-	Out     io.Writer
-	Pass    []byte
-	Mode    Mode
-	Md      Md
-	KeyIter int
-	PrintFn PrintFunc
-}
-
-func (p *Encrypter) Encrypt() ([]byte, error) {
-	return Encrypt(p.In, p.Out, p.Pass, p.Mode, p.Md, p.KeyIter, p.PrintFn)
-}
-
-func NewEncrypter(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter int, printFn PrintFunc) (*Encrypter, error) {
-	err := checkArgs(in, out, pass)
-	if err != nil {
-		return nil, err
-	}
-	return &Encrypter{in, out, pass, mode, md, keyIter, printFn}, nil
-}
-
-type Decrypter struct {
-	In      io.Reader
-	Out     io.Writer
-	Pass    []byte
-	Sign    []byte
-	PrintFn PrintFunc
-}
-
-func (p *Decrypter) Decrypt() (sign []byte, err error) {
-	sign, err = Decrypt(p.In, p.Out, p.Pass, p.PrintFn)
+func DecryptVerify(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc, vSign []byte) (sign []byte, err error) {
+	sign, err = Decrypt(in, out, pass, printFn)
 	if err != nil {
 		return
 	}
-	if p.Sign != nil {
-		if !VerifySign(p.Sign, sign) {
+	if vSign != nil {
+		if !VerifySign(vSign, sign) {
 			err = errors.New("signature verification failed")
 		}
 	}
 	return
-}
-
-func NewDecrypter(in io.Reader, out io.Writer, pass []byte, sign []byte, printFn PrintFunc) (*Decrypter, error) {
-	err := checkArgs(in, out, pass)
-	if err != nil {
-		return nil, err
-	}
-	return &Decrypter{in, out, pass, sign, printFn}, nil
 }

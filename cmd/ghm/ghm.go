@@ -11,7 +11,7 @@ import (
 	"golang.org/x/term"
 )
 
-var app = "ghm"
+const app = "ghm"
 
 var gitTag = "*"
 var gitRev = "*"
@@ -144,17 +144,15 @@ func getPass(passSet bool) ([]byte, error) {
 	return bPass, nil
 }
 
-func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) (err error) {
-	if !fVerbose {
-		return
+func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
+	if fVerbose {
+		printfStderr("Mode\t%s(%d)\n", geheim.ModeNames[mode], mode)
+		printfStderr("Md\t%s(%d)\n", geheim.MdNames[md], md)
+		printfStderr("KeyIter\t%d\n", keyIter)
+		printfStderr("Salt\t%x\n", salt)
+		printfStderr("IV\t%x\n", iv)
+		printfStderr("Key\t%x\n", key)
 	}
-	printfStderr("Mode\t%s(%d)\n", geheim.ModeNames[mode], mode)
-	printfStderr("Md\t%s(%d)\n", geheim.MdNames[md], md)
-	printfStderr("KeyIter\t%d\n", keyIter)
-	printfStderr("Salt\t%x\n", salt)
-	printfStderr("IV\t%x\n", iv)
-	printfStderr("Key\t%x\n", key)
-	return
 }
 
 func printUsage() {
@@ -163,15 +161,14 @@ func printUsage() {
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
-	mode := geheim.Mode(fMode)
-	md := geheim.Md(fMd)
-	keyIter := fKeyIter
-	sign, err := geheim.Encrypt(in, out, pass, mode, md, keyIter, dbg)
+	sign, err := geheim.Encrypt(in, out, pass, geheim.Mode(fMode), geheim.Md(fMd), fKeyIter, dbg)
+	if fVerbose {
+		if sign != nil {
+			printfStderr("Sign\t%x\n", sign)
+		}
+	}
 	if err != nil {
 		return
-	}
-	if fVerbose {
-		printfStderr("Sign\t%x\n", sign)
 	}
 	if signOut != nil {
 		_, err = signOut.Write(sign)
@@ -186,20 +183,15 @@ func dec(in, out, signIn *os.File, pass []byte) (err error) {
 		if err != nil {
 			return
 		}
-		if fVerbose {
+	}
+	sign, err := geheim.DecryptVerify(in, out, pass, dbg, vSign)
+	if fVerbose {
+		if vSign != nil {
 			printfStderr("VSign\t%x\n", vSign)
 		}
-	}
-	decrypter, err := geheim.NewDecrypter(in, out, pass, vSign, dbg)
-	if err != nil {
-		return
-	}
-	sign, err := decrypter.Decrypt()
-	if err != nil {
-		return
-	}
-	if fVerbose {
-		printfStderr("Sign\t%x\n", sign)
+		if sign != nil {
+			printfStderr("Sign\t%x\n", sign)
+		}
 	}
 	return
 }
@@ -236,7 +228,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfigs(fMode, fMd, fKeyIter)) {
+		if checkErr(geheim.ValidateConfigs(geheim.Mode(fMode), geheim.Md(fMd), fKeyIter)) {
 			return
 		}
 	}
@@ -251,14 +243,11 @@ func main() {
 		return
 	}
 	defer (func() {
-		if checkErr(in.Close(), out.Close()) {
-			return
-		}
+		errs := []error{in.Close(), out.Close()}
 		if sign != nil {
-			if checkErr(sign.Close()) {
-				return
-			}
+			errs = append(errs, sign.Close())
 		}
+		checkErr(errs...)
 	})()
 	pass, err := getPass(passSet)
 	if checkErr(err) {
