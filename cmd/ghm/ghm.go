@@ -28,6 +28,7 @@ var (
 	fOverwrite bool
 	fVerbose   bool
 	fVersion   bool
+	fGen       int
 )
 
 func flagsSet() (inSet, outSet, signSet, passSet bool) {
@@ -38,7 +39,7 @@ func flagsSet() (inSet, outSet, signSet, passSet bool) {
 		if f.Name == "out" {
 			outSet = true
 		}
-		if f.Name == "s" {
+		if f.Name == "sign" {
 			signSet = true
 		}
 		if f.Name == "pass" {
@@ -155,11 +156,6 @@ func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
 	}
 }
 
-func printUsage() {
-	printfStderr("usage of %s:\n", app)
-	flag.PrintDefaults()
-}
-
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
 	sign, err := geheim.Encrypt(in, out, pass, geheim.Mode(fMode), geheim.Md(fMd), fKeyIter, dbg)
 	if fVerbose {
@@ -197,38 +193,47 @@ func dec(in, out, signIn *os.File, pass []byte) (err error) {
 }
 
 func main() {
-	flag.StringVar(&fIn, "in", "", "`input` path (default: `stdin`)")
-	flag.StringVar(&fOut, "out", "", "`output` path (default: `stdout`)")
-	flag.StringVar(&fSign, "s", "", "`signature` path (bypass if omitted)")
-	flag.StringVar(&fPass, "pass", "", "`passphrase` (must be specified if `stdin` is used as input)")
-	flag.BoolVar(&fOverwrite, "y", false, "allow overwrite to existing file")
-	flag.BoolVar(&fDecrypt, "d", false, "decrypt (encrypt if omitted)")
+	flag.Usage = func() {
+		printfStderr("Usage: %s [OPTION]...\nOptions:\n", app)
+		flag.PrintDefaults()
+	}
+	flag.StringVar(&fIn, "in", "", "input `path` (default `stdin`)")
+	flag.StringVar(&fOut, "out", "", "output `path` (default `stdout`)")
+	flag.StringVar(&fSign, "sign", "", "signature `path` (bypass if omitted)")
+	flag.StringVar(&fPass, "pass", "", "passphrase `string` (must be specified if `stdin` is used as input)")
+	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing file")
+	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
 	flag.BoolVar(&fVersion, "V", false, "print version")
-	flag.IntVar(&fMode, "m", int(geheim.DMode),
+	flag.IntVar(&fGen, "G", 0, "generate random bytes of `length`")
+	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
 		fmt.Sprintf("[encryption] cipher block mode (%s)", geheim.GetModeString()),
 	)
-	flag.IntVar(&fMd, "md", int(geheim.DMd),
+	flag.IntVar(&fMd, "md", int(geheim.DefaultMd),
 		fmt.Sprintf("[encryption] message digest (%s)", geheim.GetMdString()),
 	)
-	flag.IntVar(&fKeyIter, "iter", geheim.DKeyIter,
-		fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DKeyIter),
+	flag.IntVar(&fKeyIter, "iter", geheim.DefaultKeyIter,
+		fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DefaultKeyIter),
 	)
 	if len(os.Args) <= 1 {
-		printUsage()
+		flag.Usage()
 		return
 	}
 	flag.Parse()
 	if flag.NArg() != 0 {
-		printUsage()
+		flag.Usage()
 		return
 	}
 	if fVersion {
 		printfStderr("%s %s (%s)\n", app, gitTag, gitRev)
 		return
 	}
+	if fGen > 0 {
+		fmt.Print(geheim.RandASCIIString(fGen))
+		return
+	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfigs(geheim.Mode(fMode), geheim.Md(fMd), fKeyIter)) {
+		if checkErr(geheim.ValidateConfig(geheim.Mode(fMode), geheim.Md(fMd), fKeyIter)) {
 			return
 		}
 	}
