@@ -1,7 +1,6 @@
 package geheim
 
 import (
-	"fmt"
 	"io"
 )
 
@@ -15,31 +14,28 @@ func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
 }
 
 func ValidateConfig(mode Mode, md Md, keyIter int) (err error) {
-	switch mode {
-	case ModeCTR:
-	case ModeCFB:
-	case ModeOFB:
-		break
-	default:
-		err = fmt.Errorf("invalid cipher block mode (%s)", GetModeString())
+	err = errInvMode
+	for _, m := range modes {
+		if m == mode {
+			err = nil
+			break
+		}
 	}
-	switch md {
-	case SHA3_224:
-	case SHA3_256:
-	case SHA3_384:
-	case SHA3_512:
-	case SHA_224:
-	case SHA_256:
-	case SHA_384:
-	case SHA_512:
-	case SHA_512_224:
-	case SHA_512_256:
-		break
-	default:
-		err = fmt.Errorf("invalid message digest (%s)", GetMdString())
+	if err != nil {
+		return
+	}
+	err = errInvMd
+	for _, m := range mds {
+		if m == md {
+			err = nil
+			break
+		}
+	}
+	if err != nil {
+		return
 	}
 	if keyIter < DefaultKeyIter {
-		err = fmt.Errorf("invalid key iteration (minimum %d)", DefaultKeyIter)
+		err = errInvKeyIter
 	}
 	return
 }
