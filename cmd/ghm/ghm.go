@@ -178,13 +178,13 @@ func main() {
 	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.IntVar(&fGen, "G", 0, "generate random bytes of `length`")
 	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
-		fmt.Sprintf("[encryption] cipher block mode (%s)", geheim.GetModeString()),
+		fmt.Sprintf("[encrypt] cipher block mode (%s)", geheim.GetModeString()),
 	)
 	flag.IntVar(&fMd, "md", int(geheim.DefaultMd),
-		fmt.Sprintf("[encryption] message digest (%s)", geheim.GetMdString()),
+		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMdString()),
 	)
 	flag.IntVar(&fKeyIter, "iter", geheim.DefaultKeyIter,
-		fmt.Sprintf("[encryption] key iteration (minimum %d)", geheim.DefaultKeyIter),
+		fmt.Sprintf("[encrypt] key iteration (minimum %d)", geheim.DefaultKeyIter),
 	)
 	if len(os.Args) <= 1 {
 		flag.Usage()
