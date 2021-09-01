@@ -59,8 +59,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter
 	if err != nil {
 		return
 	}
-	s := sm(block, iv)
-	sw := newCipherStreamWriter(s, w)
+	sw := newCipherStreamWriter(sm(block, iv), w)
 	h := hmac.New(mdfn, dk)
 	_, err = io.Copy(io.MultiWriter(sw, h), r)
 	if err != nil {
@@ -106,8 +105,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	s := sm(block, iv)
-	sr := newCipherStreamReader(s, r)
+	sr := newCipherStreamReader(sm(block, iv), r)
 	h := hmac.New(mdfn, dk)
 	_, err = io.Copy(io.MultiWriter(w, h), sr)
 	if err != nil {

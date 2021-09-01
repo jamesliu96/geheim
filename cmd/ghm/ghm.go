@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/jamesliu96/geheim"
-	"golang.org/x/term"
 )
 
 const app = "ghm"
@@ -115,34 +114,6 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 		}
 	}
 	return
-}
-
-func getPass(passSet bool) ([]byte, error) {
-	if passSet {
-		return []byte(fPass), nil
-	}
-	stdinFd := int(os.Stdin.Fd())
-	printfStderr("enter passphrase: ")
-	bPass, err := term.ReadPassword(stdinFd)
-	if err != nil {
-		return nil, err
-	}
-	printfStderr("\n")
-	if string(bPass) == "" {
-		return nil, errors.New("empty passphrase")
-	}
-	if !fDecrypt {
-		printfStderr("verify passphrase: ")
-		bvPass, err := term.ReadPassword(stdinFd)
-		if err != nil {
-			return nil, err
-		}
-		printfStderr("\n")
-		if string(bPass) != string(bvPass) {
-			return nil, errors.New("passphrase verification failed")
-		}
-	}
-	return bPass, nil
 }
 
 func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {

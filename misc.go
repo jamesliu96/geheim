@@ -5,14 +5,14 @@ import (
 	"io"
 )
 
+type PrintFunc func(Mode, Md, int, []byte, []byte, []byte)
+
 func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
 	if in == nil || out == nil || pass == nil {
 		return errInvArg
 	}
 	return nil
 }
-
-type PrintFunc func(Mode, Md, int, []byte, []byte, []byte)
 
 func ValidateConfig(mode Mode, md Md, keyIter int) (err error) {
 	switch mode {
