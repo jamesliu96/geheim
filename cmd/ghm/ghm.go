@@ -176,7 +176,7 @@ func main() {
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
 	flag.BoolVar(&fVersion, "V", false, "print version")
-	flag.IntVar(&fGen, "G", 0, "generate random bytes of `length`")
+	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
 		fmt.Sprintf("[encrypt] cipher block mode (%s)", geheim.GetModeString()),
 	)
