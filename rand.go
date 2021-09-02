@@ -2,13 +2,16 @@ package geheim
 
 import "crypto/rand"
 
-func RandASCIIString(n int) string {
+func RandASCIIString(n int) (s string, err error) {
 	pass := make([]byte, n)
-	rand.Read(pass)
+	if err = randRead(pass); err != nil {
+		return
+	}
 	for i, b := range pass {
 		pass[i] = byte('!' + (b % ('~' - '!' + 1)))
 	}
-	return string(pass)
+	s = string(pass)
+	return
 }
 
 func randRead(buf []byte) (err error) {

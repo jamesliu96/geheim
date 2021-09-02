@@ -200,7 +200,11 @@ func main() {
 		return
 	}
 	if fGen > 0 {
-		fmt.Print(geheim.RandASCIIString(fGen))
+		if s, err := geheim.RandASCIIString(fGen); checkErr(err) {
+			return
+		} else {
+			fmt.Print(s)
+		}
 		return
 	}
 	if !fDecrypt {
