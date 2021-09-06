@@ -8,31 +8,51 @@ import (
 	"strings"
 )
 
-type Mode uint16
+type Cipher uint8
 
 const (
-	ModeCTR Mode = 1 + iota
-	ModeCFB
-	ModeOFB
+	AES Cipher = 1 + iota
+)
+
+var CipherNames = map[Cipher]string{
+	AES: "AES",
+}
+
+var ciphers = [...]Cipher{AES}
+
+func GetCipherString() string {
+	d := []string{}
+	for _, cipher := range ciphers {
+		d = append(d, fmt.Sprintf("%d:%s", cipher, CipherNames[cipher]))
+	}
+	return strings.Join(d, ", ")
+}
+
+type Mode uint8
+
+const (
+	CTR Mode = 1 + iota
+	CFB
+	OFB
 )
 
 func getCipherStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {
 	switch mode {
-	case ModeCTR:
-		return cipher.NewCTR, ModeCTR
-	case ModeCFB:
+	case CTR:
+		return cipher.NewCTR, CTR
+	case CFB:
 		if decrypt {
-			return cipher.NewCFBDecrypter, ModeCFB
+			return cipher.NewCFBDecrypter, CFB
 		} else {
-			return cipher.NewCFBEncrypter, ModeCFB
+			return cipher.NewCFBEncrypter, CFB
 		}
-	case ModeOFB:
-		return cipher.NewOFB, ModeOFB
+	case OFB:
+		return cipher.NewOFB, OFB
 	}
 	return getCipherStreamMode(DefaultMode, decrypt)
 }
 
-func newCipherBlock(key []byte) (cipher.Block, error) {
+func newAESCipherBlock(key []byte) (cipher.Block, error) {
 	return aes.NewCipher(key)
 }
 
@@ -45,12 +65,12 @@ func newCipherStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
 }
 
 var ModeNames = map[Mode]string{
-	ModeCTR: "CTR",
-	ModeCFB: "CFB",
-	ModeOFB: "OFB",
+	CTR: "CTR",
+	CFB: "CFB",
+	OFB: "OFB",
 }
 
-var modes = [...]Mode{ModeCTR, ModeCFB, ModeOFB}
+var modes = [...]Mode{CTR, CFB, OFB}
 
 func GetModeString() string {
 	d := []string{}

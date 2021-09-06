@@ -14,17 +14,19 @@ const (
 )
 
 const (
-	DefaultMode    = ModeCTR
+	DefaultCipher  = AES
+	DefaultKDF     = PBKDF2
+	DefaultMode    = CTR
 	DefaultMd      = SHA_256
 	DefaultKeyIter = 100000
 )
 
-func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, printFn PrintFunc) (sign []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
 	}
-	err = ValidateConfig(mode, md, keyIter)
+	err = ValidateConfig(cipher, kdf, mode, md, keyIter)
 	if err != nil {
 		return
 	}
@@ -40,9 +42,9 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter
 	}
 	sm, mode := getCipherStreamMode(mode, false)
 	mdfn, md := getMd(md)
-	dk := deriveKey(pass, salt, keyIter, mdfn)
+	dk, kdf := deriveKey(kdf, pass, salt, keyIter, mdfn)
 	if printFn != nil {
-		printFn(mode, md, keyIter, salt, iv, dk)
+		printFn(cipher, kdf, mode, md, keyIter, salt, iv, dk)
 	}
 	r := bufio.NewReader(in)
 	w := bufio.NewWriter(out)
@@ -51,15 +53,26 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, mode Mode, md Md, keyIter
 			err = w.Flush()
 		}
 	})()
-	err = newHeader(uint16(mode), uint16(md), uint32(keyIter), salt, iv).write(w)
+	meta := newMeta()
+	err = meta.Write(w)
 	if err != nil {
 		return
 	}
-	block, err := newCipherBlock(dk)
+	header, err := meta.GetHeader()
 	if err != nil {
 		return
 	}
-	sw := newCipherStreamWriter(sm(block, iv), w)
+	header.Set(cipher, kdf, mode, md, keyIter, salt, iv)
+	err = header.Write(w)
+	if err != nil {
+		return
+	}
+	block, err := newAESCipherBlock(dk)
+	if err != nil {
+		return
+	}
+	s := sm(block, iv)
+	sw := newCipherStreamWriter(s, w)
 	h := hmac.New(mdfn, dk)
 	_, err = io.Copy(io.MultiWriter(sw, h), r)
 	if err != nil {
@@ -75,25 +88,29 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 		return
 	}
 	r := bufio.NewReader(in)
-	header := &header{}
-	err = header.read(r)
+	meta := &meta{}
+	err = meta.Read(r)
 	if err != nil {
 		return
 	}
-	mode := Mode(header.Mode)
-	md := Md(header.Md)
-	keyIter := int(header.KeyIter)
-	err = ValidateConfig(mode, md, keyIter)
+	header, err := meta.GetHeader()
 	if err != nil {
 		return
 	}
-	salt := header.Salt[:]
-	iv := header.IV[:]
+	err = header.Read(r)
+	if err != nil {
+		return
+	}
+	cipher, kdf, mode, md, keyIter, salt, iv := header.Get()
+	err = ValidateConfig(cipher, kdf, mode, md, keyIter)
+	if err != nil {
+		return
+	}
 	sm, mode := getCipherStreamMode(mode, true)
 	mdfn, md := getMd(md)
-	dk := deriveKey(pass, salt, keyIter, mdfn)
+	dk, kdf := deriveKey(kdf, pass, salt, keyIter, mdfn)
 	if printFn != nil {
-		printFn(mode, md, keyIter, salt, iv, dk)
+		printFn(cipher, kdf, mode, md, keyIter, salt, iv, dk)
 	}
 	w := bufio.NewWriter(out)
 	defer (func() {
@@ -101,11 +118,12 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 			err = w.Flush()
 		}
 	})()
-	block, err := newCipherBlock(dk)
+	block, err := newAESCipherBlock(dk)
 	if err != nil {
 		return
 	}
-	sr := newCipherStreamReader(sm(block, iv), r)
+	s := sm(block, iv)
+	sr := newCipherStreamReader(s, r)
 	h := hmac.New(mdfn, dk)
 	_, err = io.Copy(io.MultiWriter(w, h), sr)
 	if err != nil {

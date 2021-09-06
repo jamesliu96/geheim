@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-type Md uint16
+type Md uint8
 
 const (
 	SHA3_224 Md = 1 + iota

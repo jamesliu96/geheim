@@ -17,6 +17,8 @@ var gitRev = "*"
 
 var (
 	fDecrypt   bool
+	fCipher    int
+	fKDF       int
 	fMode      int
 	fMd        int
 	fKeyIter   int
@@ -116,8 +118,10 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
-func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
+func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
 	if fVerbose {
+		printfStderr("Cipher\t%s(%d)\n", geheim.CipherNames[cipher], cipher)
+		printfStderr("KDF\t%s(%d)\n", geheim.KDFNames[kdf], kdf)
 		printfStderr("Mode\t%s(%d)\n", geheim.ModeNames[mode], mode)
 		printfStderr("Md\t%s(%d)\n", geheim.MdNames[md], md)
 		printfStderr("KeyIter\t%d\n", keyIter)
@@ -128,7 +132,7 @@ func dbg(mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
-	sign, err := geheim.Encrypt(in, out, pass, geheim.Mode(fMode), geheim.Md(fMd), fKeyIter, dbg)
+	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.Md(fMd), fKeyIter, dbg)
 	if fVerbose {
 		if sign != nil {
 			printfStderr("Sign\t%x\n", sign)
@@ -177,6 +181,12 @@ func main() {
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
 	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
+	flag.IntVar(&fCipher, "c", int(geheim.DefaultCipher),
+		fmt.Sprintf("[encrypt] cipher (%s)", geheim.GetCipherString()),
+	)
+	flag.IntVar(&fKDF, "k", int(geheim.DefaultKDF),
+		fmt.Sprintf("[encrypt] key derivation function (%s)", geheim.GetKDFString()),
+	)
 	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
 		fmt.Sprintf("[encrypt] cipher block mode (%s)", geheim.GetModeString()),
 	)
@@ -208,7 +218,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Mode(fMode), geheim.Md(fMd), fKeyIter)) {
+		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.Md(fMd), fKeyIter)) {
 			return
 		}
 	}
