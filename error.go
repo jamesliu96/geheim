@@ -3,6 +3,7 @@ package geheim
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 var (
@@ -12,6 +13,6 @@ var (
 	errInvCipher  = fmt.Errorf("invalid cipher (%s)", GetCipherString())
 	errInvKDF     = fmt.Errorf("invalid key derivation function (%s)", GetKDFString())
 	errInvMode    = fmt.Errorf("invalid cipher block mode (%s)", GetModeString())
-	errInvMd      = fmt.Errorf("invalid message digest (%s)", GetMdString())
-	errInvKeyIter = fmt.Errorf("invalid key iteration (minimum %d)", DefaultKeyIter)
+	errInvMD      = fmt.Errorf("invalid message digest (%s)", GetMDString())
+	errInvKeyIter = fmt.Errorf("invalid key iteration (%d~%d)", DefaultKeyIter, math.MaxUint32)
 )

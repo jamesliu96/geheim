@@ -30,9 +30,9 @@ var ivSizes = map[Cipher]int{
 var ciphers = [...]Cipher{AES, Chacha20}
 
 func GetCipherString() string {
-	d := []string{}
-	for _, cipher := range ciphers {
-		d = append(d, fmt.Sprintf("%d:%s", cipher, CipherNames[cipher]))
+	d := make([]string, len(ciphers))
+	for i, cipher := range ciphers {
+		d[i] = fmt.Sprintf("%d:%s", cipher, CipherNames[cipher])
 	}
 	return strings.Join(d, ", ")
 }
@@ -93,9 +93,9 @@ var ModeNames = map[Mode]string{
 var modes = [...]Mode{CTR, CFB, OFB}
 
 func GetModeString() string {
-	d := []string{}
-	for _, mode := range modes {
-		d = append(d, fmt.Sprintf("%d:%s", mode, ModeNames[mode]))
+	d := make([]string, len(modes))
+	for i, mode := range modes {
+		d[i] = fmt.Sprintf("%d:%s", mode, ModeNames[mode])
 	}
 	return strings.Join(d, ", ")
 }

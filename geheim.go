@@ -15,11 +15,11 @@ const (
 	DefaultCipher  = AES
 	DefaultKDF     = PBKDF2
 	DefaultMode    = CTR
-	DefaultMd      = SHA_256
+	DefaultMD      = SHA_256
 	DefaultKeyIter = 100000
 )
 
-func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, mode Mode, md MD, keyIter int, printFn PrintFunc) (sign []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
@@ -46,7 +46,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 		return
 	}
 	sm, mode := getStreamMode(mode, false)
-	mdfn, md := getMd(md)
+	mdfn, md := getMD(md)
 	dk, kdf, err := deriveKey(kdf, pass, salt, keyIter, mdfn)
 	if err != nil {
 		return
@@ -116,7 +116,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 		return
 	}
 	sm, mode := getStreamMode(mode, true)
-	mdfn, md := getMd(md)
+	mdfn, md := getMD(md)
 	dk, kdf, err := deriveKey(kdf, pass, salt, keyIter, mdfn)
 	if err != nil {
 		return

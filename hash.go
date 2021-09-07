@@ -10,10 +10,10 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-type Md uint8
+type MD uint8
 
 const (
-	SHA3_224 Md = 1 + iota
+	SHA3_224 MD = 1 + iota
 	SHA3_256
 	SHA3_384
 	SHA3_512
@@ -25,7 +25,7 @@ const (
 	SHA_512_256
 )
 
-func getMd(md Md) (func() hash.Hash, Md) {
+func getMD(md MD) (func() hash.Hash, MD) {
 	switch md {
 	case SHA3_224:
 		return sha3.New224, SHA3_224
@@ -48,10 +48,10 @@ func getMd(md Md) (func() hash.Hash, Md) {
 	case SHA_512_256:
 		return sha512.New512_256, SHA_512_256
 	}
-	return getMd(DefaultMd)
+	return getMD(DefaultMD)
 }
 
-var MdNames = map[Md]string{
+var MDNames = map[MD]string{
 	SHA3_224:    "SHA3-224",
 	SHA3_256:    "SHA3-256",
 	SHA3_384:    "SHA3-384",
@@ -64,12 +64,12 @@ var MdNames = map[Md]string{
 	SHA_512_256: "SHA-512-256",
 }
 
-var mds = [...]Md{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256}
+var mds = [...]MD{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256}
 
-func GetMdString() string {
-	d := []string{}
-	for _, md := range mds {
-		d = append(d, fmt.Sprintf("%d:%s", md, MdNames[md]))
+func GetMDString() string {
+	d := make([]string, len(mds))
+	for i, md := range mds {
+		d[i] = fmt.Sprintf("%d:%s", md, MDNames[md])
 	}
 	return strings.Join(d, ", ")
 }

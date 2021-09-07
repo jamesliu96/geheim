@@ -8,8 +8,8 @@ import (
 type header interface {
 	Read(io.Reader) error
 	Write(io.Writer) error
-	Set(Cipher, KDF, Mode, Md, int, []byte, []byte)
-	Get() (Cipher, KDF, Mode, Md, int, []byte, []byte)
+	Set(Cipher, KDF, Mode, MD, int, []byte, []byte)
+	Get() (Cipher, KDF, Mode, MD, int, []byte, []byte)
 }
 
 var headerByteOrder binary.ByteOrder = binary.BigEndian
@@ -73,7 +73,7 @@ func newMeta() *meta {
 }
 
 type headerV1 struct {
-	Mode, Md uint16
+	Mode, MD uint16
 	KeyIter  uint32
 	Salt     [16]byte
 	IV       [16]byte
@@ -87,19 +87,19 @@ func (v *headerV1) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV1) Set(_ Cipher, _ KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
+func (v *headerV1) Set(_ Cipher, _ KDF, mode Mode, md MD, keyIter int, salt []byte, iv []byte) {
 	v.Mode = uint16(mode)
-	v.Md = uint16(md)
+	v.MD = uint16(md)
 	v.KeyIter = uint32(keyIter)
 	copy(v.Salt[:], salt)
 	copy(v.IV[:ivSizes[DefaultCipher]], iv)
 }
 
-func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
+func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, keyIter int, salt []byte, iv []byte) {
 	cipher = DefaultCipher
 	kdf = DefaultKDF
 	mode = Mode(v.Mode)
-	md = Md(v.Md)
+	md = MD(v.MD)
 	keyIter = int(v.KeyIter)
 	salt = v.Salt[:]
 	iv = v.IV[:ivSizes[DefaultCipher]]
@@ -107,7 +107,7 @@ func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int,
 }
 
 type headerV2 struct {
-	Cipher, KDF, Mode, Md uint8
+	Cipher, KDF, Mode, MD uint8
 	KeyIter               uint32
 	Salt                  [16]byte
 	IV                    [16]byte
@@ -121,21 +121,21 @@ func (v *headerV2) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV2) Set(cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
+func (v *headerV2) Set(cipher Cipher, kdf KDF, mode Mode, md MD, keyIter int, salt []byte, iv []byte) {
 	v.Cipher = uint8(cipher)
 	v.KDF = uint8(kdf)
 	v.Mode = uint8(mode)
-	v.Md = uint8(md)
+	v.MD = uint8(md)
 	v.KeyIter = uint32(keyIter)
 	copy(v.Salt[:], salt)
 	copy(v.IV[:ivSizes[cipher]], iv)
 }
 
-func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
+func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, keyIter int, salt []byte, iv []byte) {
 	cipher = Cipher(v.Cipher)
 	kdf = KDF(v.KDF)
 	mode = Mode(v.Mode)
-	md = Md(v.Md)
+	md = MD(v.MD)
 	keyIter = int(v.KeyIter)
 	salt = v.Salt[:]
 	iv = v.IV[:ivSizes[cipher]]

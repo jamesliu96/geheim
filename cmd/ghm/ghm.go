@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"runtime"
 
@@ -21,7 +22,7 @@ var (
 	fCipher    int
 	fKDF       int
 	fMode      int
-	fMd        int
+	fMD        int
 	fKeyIter   int
 	fIn        string
 	fOut       string
@@ -119,12 +120,12 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
-func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) error {
+func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.MD, keyIter int, salt, iv, key []byte) error {
 	if fVerbose {
 		printfStderr("Cipher\t%s(%d)\n", geheim.CipherNames[cipher], cipher)
 		printfStderr("KDF\t%s(%d)\n", geheim.KDFNames[kdf], kdf)
 		printfStderr("Mode\t%s(%d)\n", geheim.ModeNames[mode], mode)
-		printfStderr("Md\t%s(%d)\n", geheim.MdNames[md], md)
+		printfStderr("MD\t%s(%d)\n", geheim.MDNames[md], md)
 		printfStderr("KeyIter\t%d\n", keyIter)
 		printfStderr("Salt\t%x\n", salt)
 		printfStderr("IV\t%x\n", iv)
@@ -134,7 +135,7 @@ func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.Md, k
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
-	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.Md(fMd), fKeyIter, dbg)
+	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), fKeyIter, dbg)
 	if fVerbose {
 		if sign != nil {
 			printfStderr("Sign\t%x\n", sign)
@@ -192,11 +193,11 @@ func main() {
 	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
 		fmt.Sprintf("[encrypt] cipher block mode (%s)", geheim.GetModeString()),
 	)
-	flag.IntVar(&fMd, "h", int(geheim.DefaultMd),
-		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMdString()),
+	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
+		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMDString()),
 	)
 	flag.IntVar(&fKeyIter, "i", geheim.DefaultKeyIter,
-		fmt.Sprintf("[encrypt] key iteration (minimum %d)", geheim.DefaultKeyIter),
+		fmt.Sprintf("[encrypt] key iteration (%d~%d)", geheim.DefaultKeyIter, math.MaxUint32),
 	)
 	if len(os.Args) <= 1 {
 		flag.Usage()
@@ -220,7 +221,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.Md(fMd), fKeyIter)) {
+		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), fKeyIter)) {
 			return
 		}
 	}
