@@ -6,19 +6,28 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"golang.org/x/crypto/chacha20"
 )
 
 type Cipher uint8
 
 const (
 	AES Cipher = 1 + iota
+	Chacha20
 )
 
 var CipherNames = map[Cipher]string{
-	AES: "AES",
+	AES:      "AES",
+	Chacha20: "Chacha20",
 }
 
-var ciphers = [...]Cipher{AES}
+var ivSizes = map[Cipher]int{
+	AES:      aes.BlockSize,
+	Chacha20: chacha20.NonceSize,
+}
+
+var ciphers = [...]Cipher{AES, Chacha20}
 
 func GetCipherString() string {
 	d := []string{}
@@ -26,6 +35,21 @@ func GetCipherString() string {
 		d = append(d, fmt.Sprintf("%d:%s", cipher, CipherNames[cipher]))
 	}
 	return strings.Join(d, ", ")
+}
+
+func getStream(cipher Cipher, key []byte, iv []byte, sm func(cipher.Block, []byte) cipher.Stream) (cipher.Stream, Cipher, error) {
+	switch cipher {
+	case AES:
+		block, err := aes.NewCipher(key)
+		if err != nil {
+			return nil, AES, err
+		}
+		return sm(block, iv), AES, nil
+	case Chacha20:
+		stream, err := chacha20.NewUnauthenticatedCipher(key, iv)
+		return stream, Chacha20, err
+	}
+	return getStream(DefaultCipher, key, iv, sm)
 }
 
 type Mode uint8
@@ -36,7 +60,7 @@ const (
 	OFB
 )
 
-func getCipherStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {
+func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {
 	switch mode {
 	case CTR:
 		return cipher.NewCTR, CTR
@@ -49,19 +73,7 @@ func getCipherStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) ci
 	case OFB:
 		return cipher.NewOFB, OFB
 	}
-	return getCipherStreamMode(DefaultMode, decrypt)
-}
-
-func getStream(cipher Cipher, key []byte, iv []byte, sm func(cipher.Block, []byte) cipher.Stream) (cipher.Stream, Cipher, error) {
-	switch cipher {
-	case AES:
-		block, err := aes.NewCipher(key)
-		if err != nil {
-			return nil, AES, err
-		}
-		return sm(block, iv), AES, nil
-	}
-	return getStream(DefaultCipher, key, iv, sm)
+	return getStreamMode(DefaultMode, decrypt)
 }
 
 func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {

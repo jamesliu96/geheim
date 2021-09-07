@@ -2,15 +2,13 @@ package geheim
 
 import (
 	"bufio"
-	"crypto/aes"
 	"crypto/hmac"
 	"io"
 )
 
 const (
-	sizeSalt = 16
-	sizeIV   = aes.BlockSize
-	sizeKey  = 32
+	saltSize = 16
+	keySize  = 32
 )
 
 const (
@@ -37,19 +35,22 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 	if err != nil {
 		return
 	}
-	salt := make([]byte, sizeSalt)
+	salt := make([]byte, saltSize)
 	err = randRead(salt)
 	if err != nil {
 		return
 	}
-	iv := make([]byte, sizeIV)
+	iv := make([]byte, ivSizes[cipher])
 	err = randRead(iv)
 	if err != nil {
 		return
 	}
-	sm, mode := getCipherStreamMode(mode, false)
+	sm, mode := getStreamMode(mode, false)
 	mdfn, md := getMd(md)
-	dk, kdf := deriveKey(kdf, pass, salt, keyIter, mdfn)
+	dk, kdf, err := deriveKey(kdf, pass, salt, keyIter, mdfn)
+	if err != nil {
+		return
+	}
 	s, cipher, err := getStream(cipher, dk, iv, sm)
 	if err != nil {
 		return
@@ -114,9 +115,12 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	sm, mode := getCipherStreamMode(mode, true)
+	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMd(md)
-	dk, kdf := deriveKey(kdf, pass, salt, keyIter, mdfn)
+	dk, kdf, err := deriveKey(kdf, pass, salt, keyIter, mdfn)
+	if err != nil {
+		return
+	}
 	s, cipher, err := getStream(cipher, dk, iv, sm)
 	if err != nil {
 		return

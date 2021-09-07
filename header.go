@@ -75,8 +75,8 @@ func newMeta() *meta {
 type headerV1 struct {
 	Mode, Md uint16
 	KeyIter  uint32
-	Salt     [sizeSalt]byte
-	IV       [sizeIV]byte
+	Salt     [16]byte
+	IV       [16]byte
 }
 
 func (v *headerV1) Read(r io.Reader) error {
@@ -92,7 +92,7 @@ func (v *headerV1) Set(_ Cipher, _ KDF, mode Mode, md Md, keyIter int, salt []by
 	v.Md = uint16(md)
 	v.KeyIter = uint32(keyIter)
 	copy(v.Salt[:], salt)
-	copy(v.IV[:], iv)
+	copy(v.IV[:ivSizes[DefaultCipher]], iv)
 }
 
 func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
@@ -102,15 +102,15 @@ func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int,
 	md = Md(v.Md)
 	keyIter = int(v.KeyIter)
 	salt = v.Salt[:]
-	iv = v.IV[:]
+	iv = v.IV[:ivSizes[DefaultCipher]]
 	return
 }
 
 type headerV2 struct {
 	Cipher, KDF, Mode, Md uint8
 	KeyIter               uint32
-	Salt                  [sizeSalt]byte
-	IV                    [sizeIV]byte
+	Salt                  [16]byte
+	IV                    [16]byte
 }
 
 func (v *headerV2) Read(r io.Reader) error {
@@ -128,7 +128,7 @@ func (v *headerV2) Set(cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, sa
 	v.Md = uint8(md)
 	v.KeyIter = uint32(keyIter)
 	copy(v.Salt[:], salt)
-	copy(v.IV[:], iv)
+	copy(v.IV[:ivSizes[cipher]], iv)
 }
 
 func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
@@ -138,6 +138,6 @@ func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int,
 	md = Md(v.Md)
 	keyIter = int(v.KeyIter)
 	salt = v.Salt[:]
-	iv = v.IV[:]
+	iv = v.IV[:ivSizes[cipher]]
 	return
 }

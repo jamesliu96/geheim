@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
 	"github.com/jamesliu96/geheim"
 )
@@ -40,10 +41,10 @@ func flagsSet() (inSet, outSet, signSet, passSet bool) {
 		if f.Name == "out" {
 			outSet = true
 		}
-		if f.Name == "sign" {
+		if f.Name == "s" {
 			signSet = true
 		}
-		if f.Name == "pass" {
+		if f.Name == "p" {
 			passSet = true
 		}
 	})
@@ -175,8 +176,8 @@ func main() {
 	}
 	flag.StringVar(&fIn, "in", "", "input `path` (default `stdin`)")
 	flag.StringVar(&fOut, "out", "", "output `path` (default `stdout`)")
-	flag.StringVar(&fSign, "sign", "", "signature `path` (bypass if omitted)")
-	flag.StringVar(&fPass, "pass", "", "passphrase `string` (must be specified if `stdin` is used as input)")
+	flag.StringVar(&fSign, "s", "", "signature `path` (bypass if omitted)")
+	flag.StringVar(&fPass, "p", "", "`passphrase` (must be specified if `stdin` is used as input)")
 	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing file")
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
@@ -191,10 +192,10 @@ func main() {
 	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
 		fmt.Sprintf("[encrypt] cipher block mode (%s)", geheim.GetModeString()),
 	)
-	flag.IntVar(&fMd, "md", int(geheim.DefaultMd),
+	flag.IntVar(&fMd, "h", int(geheim.DefaultMd),
 		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMdString()),
 	)
-	flag.IntVar(&fKeyIter, "iter", geheim.DefaultKeyIter,
+	flag.IntVar(&fKeyIter, "i", geheim.DefaultKeyIter,
 		fmt.Sprintf("[encrypt] key iteration (minimum %d)", geheim.DefaultKeyIter),
 	)
 	if len(os.Args) <= 1 {
@@ -207,7 +208,7 @@ func main() {
 		return
 	}
 	if fVersion {
-		printfStderr("%s %s (%s)\n", app, gitTag, gitRev)
+		printfStderr("%s %s (%s) [%d]\n", app, gitTag, gitRev, runtime.NumCPU())
 		return
 	}
 	if fGen > 0 {
