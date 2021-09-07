@@ -4,7 +4,7 @@ import (
 	"io"
 )
 
-type PrintFunc func(Cipher, KDF, Mode, Md, int, []byte, []byte, []byte)
+type PrintFunc func(Cipher, KDF, Mode, Md, int, []byte, []byte, []byte) error
 
 func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
 	if in == nil || out == nil || pass == nil {

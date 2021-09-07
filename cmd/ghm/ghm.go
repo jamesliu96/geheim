@@ -118,7 +118,7 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
-func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) {
+func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.Md, keyIter int, salt, iv, key []byte) error {
 	if fVerbose {
 		printfStderr("Cipher\t%s(%d)\n", geheim.CipherNames[cipher], cipher)
 		printfStderr("KDF\t%s(%d)\n", geheim.KDFNames[kdf], kdf)
@@ -129,6 +129,7 @@ func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.Md, k
 		printfStderr("IV\t%x\n", iv)
 		printfStderr("Key\t%x\n", key)
 	}
+	return nil
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {

@@ -52,15 +52,23 @@ func getCipherStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) ci
 	return getCipherStreamMode(DefaultMode, decrypt)
 }
 
-func newAESCipherBlock(key []byte) (cipher.Block, error) {
-	return aes.NewCipher(key)
+func getStream(cipher Cipher, key []byte, iv []byte, sm func(cipher.Block, []byte) cipher.Stream) (cipher.Stream, Cipher, error) {
+	switch cipher {
+	case AES:
+		block, err := aes.NewCipher(key)
+		if err != nil {
+			return nil, AES, err
+		}
+		return sm(block, iv), AES, nil
+	}
+	return getStream(DefaultCipher, key, iv, sm)
 }
 
-func newCipherStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
+func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
 	return &cipher.StreamReader{S: stream, R: r}
 }
 
-func newCipherStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
+func newStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
 	return &cipher.StreamWriter{S: stream, W: w}
 }
 

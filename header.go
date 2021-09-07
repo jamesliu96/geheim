@@ -14,14 +14,14 @@ type header interface {
 
 var headerByteOrder binary.ByteOrder = binary.BigEndian
 
+const padding uint32 = 0x47484dff
+
 const (
 	headerVer1 uint32 = 1 + iota
 	headerVer2
 )
 
-const pad uint32 = 0x47484DFF
-
-const ver uint32 = headerVer2
+const version = headerVer2
 
 func readHeader(r io.Reader, v interface{}) error {
 	return binary.Read(r, headerByteOrder, v)
@@ -51,14 +51,14 @@ func (m *meta) Read(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if m.Pad != pad {
+	if m.Pad != padding {
 		return errMalHead
 	}
 	return nil
 }
 
 func (m *meta) Write(w io.Writer) error {
-	if m.Pad != pad || m.Ver != ver {
+	if m.Pad != padding || m.Ver != version {
 		return errMalHead
 	}
 	return writeHeader(w, m)
@@ -69,7 +69,7 @@ func (m *meta) GetHeader() (header, error) {
 }
 
 func newMeta() *meta {
-	return &meta{Pad: pad, Ver: ver}
+	return &meta{Pad: padding, Ver: version}
 }
 
 type headerV1 struct {
@@ -95,7 +95,9 @@ func (v *headerV1) Set(_ Cipher, _ KDF, mode Mode, md Md, keyIter int, salt []by
 	copy(v.IV[:], iv)
 }
 
-func (v *headerV1) Get() (_ Cipher, _ KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
+func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md Md, keyIter int, salt []byte, iv []byte) {
+	cipher = DefaultCipher
+	kdf = DefaultKDF
 	mode = Mode(v.Mode)
 	md = Md(v.Md)
 	keyIter = int(v.KeyIter)
