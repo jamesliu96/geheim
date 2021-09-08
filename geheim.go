@@ -12,14 +12,16 @@ const (
 )
 
 const (
-	DefaultCipher  = AES
-	DefaultKDF     = PBKDF2
-	DefaultMode    = CTR
-	DefaultMD      = SHA_256
-	DefaultKeyIter = 100000
+	DefaultCipher = AES
+	DefaultKDF    = PBKDF2
+	DefaultMode   = CTR
+	DefaultMD     = SHA_256
+	DefaultMAC    = HMAC
+	MinSec        = 1
+	MaxSec        = 10
 )
 
-func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, mode Mode, md MD, keyIter int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int, printFn PrintFunc) (sign []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
@@ -31,7 +33,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 			err = w.Flush()
 		}
 	})()
-	err = ValidateConfig(cipher, kdf, mode, md, keyIter)
+	err = ValidateConfig(cipher, kdf, mode, md, mac, sec)
 	if err != nil {
 		return
 	}
@@ -47,7 +49,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 	}
 	sm, mode := getStreamMode(mode, false)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, keyIter, mdfn)
+	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn)
 	if err != nil {
 		return
 	}
@@ -55,12 +57,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 	if err != nil {
 		return
 	}
-	if printFn != nil {
-		err = printFn(cipher, kdf, mode, md, keyIter, salt, iv, dk)
-		if err != nil {
-			return
-		}
-	}
+	h, mac := getMAC(mac, mdfn, dk)
 	meta := newMeta()
 	err = meta.Write(w)
 	if err != nil {
@@ -70,14 +67,18 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 	if err != nil {
 		return
 	}
-	header.Set(cipher, kdf, mode, md, keyIter, salt, iv)
+	if printFn != nil {
+		err = printFn(header.Version(), cipher, kdf, mode, md, mac, sec, salt, iv, dk)
+		if err != nil {
+			return
+		}
+	}
+	header.Set(cipher, kdf, mode, md, mac, sec, salt, iv)
 	err = header.Write(w)
 	if err != nil {
 		return
 	}
-	sw := newStreamWriter(s, w)
-	h := hmac.New(mdfn, dk)
-	_, err = io.Copy(io.MultiWriter(sw, h), r)
+	_, err = io.Copy(io.MultiWriter(newStreamWriter(s, w), h), r)
 	if err != nil {
 		return
 	}
@@ -110,14 +111,14 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	cipher, kdf, mode, md, keyIter, salt, iv := header.Get()
-	err = ValidateConfig(cipher, kdf, mode, md, keyIter)
+	cipher, kdf, mode, md, mac, sec, salt, iv := header.Get()
+	err = ValidateConfig(cipher, kdf, mode, md, mac, sec)
 	if err != nil {
 		return
 	}
 	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, keyIter, mdfn)
+	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn)
 	if err != nil {
 		return
 	}
@@ -125,15 +126,14 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
+	h, mac := getMAC(mac, mdfn, dk)
 	if printFn != nil {
-		err = printFn(cipher, kdf, mode, md, keyIter, salt, iv, dk)
+		err = printFn(header.Version(), cipher, kdf, mode, md, mac, sec, salt, iv, dk)
 		if err != nil {
 			return
 		}
 	}
-	sr := newStreamReader(s, r)
-	h := hmac.New(mdfn, dk)
-	_, err = io.Copy(io.MultiWriter(w, h), sr)
+	_, err = io.Copy(io.MultiWriter(w, h), newStreamReader(s, r))
 	if err != nil {
 		return
 	}

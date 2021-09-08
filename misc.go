@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-type PrintFunc func(Cipher, KDF, Mode, MD, int, []byte, []byte, []byte) error
+type PrintFunc func(int, Cipher, KDF, Mode, MD, MAC, int, []byte, []byte, []byte) error
 
 func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
 	if in == nil || out == nil || pass == nil {
@@ -14,7 +14,7 @@ func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
 	return nil
 }
 
-func ValidateConfig(cipher Cipher, kdf KDF, mode Mode, md MD, keyIter int) (err error) {
+func ValidateConfig(cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int) (err error) {
 	err = errInvCipher
 	for _, c := range ciphers {
 		if c == cipher {
@@ -55,8 +55,18 @@ func ValidateConfig(cipher Cipher, kdf KDF, mode Mode, md MD, keyIter int) (err 
 	if err != nil {
 		return
 	}
-	if keyIter < DefaultKeyIter || keyIter > math.MaxUint32 {
-		err = errInvKeyIter
+	err = errInvMAC
+	for _, m := range macs {
+		if m == mac {
+			err = nil
+			break
+		}
+	}
+	if err != nil {
+		return
+	}
+	if sec < MinSec || sec > MaxSec && sec < 100000 || sec > math.MaxUint32 {
+		err = errInvSF
 	}
 	return
 }

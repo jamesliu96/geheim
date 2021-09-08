@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"runtime"
 
@@ -23,7 +22,8 @@ var (
 	fKDF       int
 	fMode      int
 	fMD        int
-	fKeyIter   int
+	fMAC       int
+	fSF        int
 	fIn        string
 	fOut       string
 	fSign      string
@@ -120,13 +120,15 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
-func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.MD, keyIter int, salt, iv, key []byte) error {
+var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.MD, mac geheim.MAC, sec int, salt, iv, key []byte) error {
 	if fVerbose {
+		printfStderr("Ver\t%d\n", version)
 		printfStderr("Cipher\t%s(%d)\n", geheim.CipherNames[cipher], cipher)
 		printfStderr("KDF\t%s(%d)\n", geheim.KDFNames[kdf], kdf)
 		printfStderr("Mode\t%s(%d)\n", geheim.ModeNames[mode], mode)
 		printfStderr("MD\t%s(%d)\n", geheim.MDNames[md], md)
-		printfStderr("KeyIter\t%d\n", keyIter)
+		printfStderr("MAC\t%s(%d)\n", geheim.MACNames[mac], mac)
+		printfStderr("Sec\t%d\n", sec)
 		printfStderr("Salt\t%x\n", salt)
 		printfStderr("IV\t%x\n", iv)
 		printfStderr("Key\t%x\n", key)
@@ -135,7 +137,7 @@ func dbg(cipher geheim.Cipher, kdf geheim.KDF, mode geheim.Mode, md geheim.MD, k
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
-	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), fKeyIter, dbg)
+	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSF, dbg)
 	if fVerbose {
 		if sign != nil {
 			printfStderr("Sign\t%x\n", sign)
@@ -196,8 +198,11 @@ func main() {
 	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
 		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMDString()),
 	)
-	flag.IntVar(&fKeyIter, "i", geheim.DefaultKeyIter,
-		fmt.Sprintf("[encrypt] key iteration (%d~%d)", geheim.DefaultKeyIter, math.MaxUint32),
+	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
+		fmt.Sprintf("[encrypt] message authentication (%s)", geheim.GetMACString()),
+	)
+	flag.IntVar(&fSF, "i", geheim.MinSec,
+		fmt.Sprintf("[encrypt] security factor (%d~%d)", geheim.MinSec, geheim.MaxSec),
 	)
 	if len(os.Args) <= 1 {
 		flag.Usage()
@@ -221,7 +226,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), fKeyIter)) {
+		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSF)) {
 			return
 		}
 	}
