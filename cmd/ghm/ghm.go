@@ -110,7 +110,7 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 		} else {
 			if !fOverwrite {
 				if _, e := os.Stat(fSign); e == nil {
-					err = fmt.Errorf("signature file `%s` exists, use -y to overwrite", fSign)
+					err = fmt.Errorf("signature file `%s` exists, use -f to overwrite", fSign)
 					return
 				}
 			}
