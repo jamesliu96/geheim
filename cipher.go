@@ -60,6 +60,22 @@ const (
 	OFB
 )
 
+var ModeNames = map[Mode]string{
+	CTR: "CTR",
+	CFB: "CFB",
+	OFB: "OFB",
+}
+
+var modes = [...]Mode{CTR, CFB, OFB}
+
+func GetModeString() string {
+	d := make([]string, len(modes))
+	for i, mode := range modes {
+		d[i] = fmt.Sprintf("%d:%s", mode, ModeNames[mode])
+	}
+	return strings.Join(d, ", ")
+}
+
 func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {
 	switch mode {
 	case CTR:
@@ -82,20 +98,4 @@ func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
 
 func newStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
 	return &cipher.StreamWriter{S: stream, W: w}
-}
-
-var ModeNames = map[Mode]string{
-	CTR: "CTR",
-	CFB: "CFB",
-	OFB: "OFB",
-}
-
-var modes = [...]Mode{CTR, CFB, OFB}
-
-func GetModeString() string {
-	d := make([]string, len(modes))
-	for i, mode := range modes {
-		d[i] = fmt.Sprintf("%d:%s", mode, ModeNames[mode])
-	}
-	return strings.Join(d, ", ")
 }
