@@ -82,17 +82,16 @@ func getSecParam(sec int) (int, uint32, uint32, int, int, int) {
 	return sec, uint32(4 * r), uint32(65536 * r), int(32768 * r), 8, 1
 }
 
-func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash) ([]byte, KDF, error) {
+func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size int) ([]byte, KDF, error) {
 	iter, time, memory, N, p, r := getSecParam(sec)
 	switch kdf {
 	case PBKDF2:
-		return pbkdf2.Key(pass, salt, iter, keySize, mdfn), PBKDF2, nil
+		return pbkdf2.Key(pass, salt, iter, size, mdfn), PBKDF2, nil
 	case Argon2:
-		return argon2.IDKey(pass, salt, time, memory, uint8(runtime.NumCPU()), keySize), Argon2, nil
+		return argon2.IDKey(pass, salt, time, memory, uint8(runtime.NumCPU()), uint32(size)), Argon2, nil
 	case Scrypt:
-		key, err := scrypt.Key(pass, salt, N, p, r, keySize)
+		key, err := scrypt.Key(pass, salt, N, p, r, size)
 		return key, Scrypt, err
-
 	}
-	return deriveKey(DefaultKDF, pass, salt, sec, mdfn)
+	return deriveKey(DefaultKDF, pass, salt, sec, mdfn, size)
 }

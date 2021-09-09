@@ -109,9 +109,7 @@ func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (messageAuth, MAC) {
 	case HMAC:
 		return hmac.New(mdfn, key), HMAC
 	case Poly1305:
-		k := [32]byte{}
-		copy(k[:], key)
-		return poly1305.New(&k), Poly1305
+		return poly1305.New((*[32]byte)(key)), Poly1305
 	}
 	return getMAC(DefaultMAC, mdfn, key)
 }

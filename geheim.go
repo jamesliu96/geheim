@@ -21,7 +21,7 @@ const (
 	MaxSec        = 10
 )
 
-func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, printFn PrintFunc) (sign []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
@@ -33,7 +33,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 			err = w.Flush()
 		}
 	})()
-	err = ValidateConfig(cipher, kdf, mode, md, mac, sec, false)
+	err = ValidateConfig(cipher, mode, kdf, md, mac, sec, false)
 	if err != nil {
 		return
 	}
@@ -49,7 +49,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 	}
 	sm, mode := getStreamMode(mode, false)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn)
+	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
 	if err != nil {
 		return
 	}
@@ -68,12 +68,12 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 		return
 	}
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, kdf, mode, md, mac, sec, salt, iv, dk)
+		err = printFn(header.Version(), cipher, mode, kdf, md, mac, sec, salt, iv, dk)
 		if err != nil {
 			return
 		}
 	}
-	header.Set(cipher, kdf, mode, md, mac, sec, salt, iv)
+	header.Set(cipher, mode, kdf, md, mac, sec, salt, iv)
 	err = header.Write(w)
 	if err != nil {
 		return
@@ -111,14 +111,14 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	cipher, kdf, mode, md, mac, sec, salt, iv := header.Get()
-	err = ValidateConfig(cipher, kdf, mode, md, mac, sec, true)
+	cipher, mode, kdf, md, mac, sec, salt, iv := header.Get()
+	err = ValidateConfig(cipher, mode, kdf, md, mac, sec, true)
 	if err != nil {
 		return
 	}
 	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn)
+	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
 	if err != nil {
 		return
 	}
@@ -128,7 +128,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	}
 	h, mac := getMAC(mac, mdfn, dk)
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, kdf, mode, md, mac, sec, salt, iv, dk)
+		err = printFn(header.Version(), cipher, mode, kdf, md, mac, sec, salt, iv, dk)
 		if err != nil {
 			return
 		}

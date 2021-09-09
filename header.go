@@ -9,8 +9,8 @@ type header interface {
 	Version() int
 	Read(io.Reader) error
 	Write(io.Writer) error
-	Set(Cipher, KDF, Mode, MD, MAC, int, []byte, []byte)
-	Get() (Cipher, KDF, Mode, MD, MAC, int, []byte, []byte)
+	Set(Cipher, Mode, KDF, MD, MAC, int, []byte, []byte)
+	Get() (Cipher, Mode, KDF, MD, MAC, int, []byte, []byte)
 }
 
 const padding uint32 = 0x47484dff
@@ -95,12 +95,12 @@ func (v *headerV1) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV1) Set(Cipher, KDF, Mode, MD, MAC, int, []byte, []byte) {}
+func (v *headerV1) Set(Cipher, Mode, KDF, MD, MAC, int, []byte, []byte) {}
 
-func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
+func (v *headerV1) Get() (cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
 	cipher = AES
-	kdf = PBKDF2
 	mode = Mode(v.Mode)
+	kdf = PBKDF2
 	md = MD(v.MD)
 	mac = HMAC
 	keyIter = int(v.KeyIter)
@@ -128,12 +128,12 @@ func (v *headerV2) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV2) Set(Cipher, KDF, Mode, MD, MAC, int, []byte, []byte) {}
+func (v *headerV2) Set(Cipher, Mode, KDF, MD, MAC, int, []byte, []byte) {}
 
-func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
+func (v *headerV2) Get() (cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
 	cipher = Cipher(v.Cipher)
-	kdf = KDF(v.KDF)
 	mode = Mode(v.Mode)
+	kdf = KDF(v.KDF)
 	md = MD(v.MD)
 	mac = HMAC
 	keyIter = int(v.KeyIter)
@@ -143,12 +143,12 @@ func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, key
 }
 
 type headerV3 struct {
-	Cipher, KDF uint8
-	Mode, MD    uint8
-	MAC, Sec    uint8
-	_           [2]byte
-	Salt        [16]byte
-	IV          [16]byte
+	Cipher, Mode uint8
+	KDF, MD      uint8
+	MAC, Sec     uint8
+	_            [2]byte
+	Salt         [16]byte
+	IV           [16]byte
 }
 
 func (v *headerV3) Version() int {
@@ -163,10 +163,10 @@ func (v *headerV3) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV3) Set(cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int, salt []byte, iv []byte) {
+func (v *headerV3) Set(cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, salt []byte, iv []byte) {
 	v.Cipher = uint8(cipher)
-	v.KDF = uint8(kdf)
 	v.Mode = uint8(mode)
+	v.KDF = uint8(kdf)
 	v.MD = uint8(md)
 	v.MAC = uint8(mac)
 	v.Sec = uint8(sec)
@@ -174,10 +174,10 @@ func (v *headerV3) Set(cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec in
 	copy(v.IV[:ivSizes[cipher]], iv)
 }
 
-func (v *headerV3) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int, salt []byte, iv []byte) {
+func (v *headerV3) Get() (cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, salt []byte, iv []byte) {
 	cipher = Cipher(v.Cipher)
-	kdf = KDF(v.KDF)
 	mode = Mode(v.Mode)
+	kdf = KDF(v.KDF)
 	md = MD(v.MD)
 	mac = MAC(v.MAC)
 	sec = int(v.Sec)
