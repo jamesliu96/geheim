@@ -23,7 +23,7 @@ var (
 	fMode      int
 	fMD        int
 	fMAC       int
-	fSF        int
+	fSL        int
 	fIn        string
 	fOut       string
 	fSign      string
@@ -139,7 +139,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, kdf geheim.KD
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
-	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSF, dbg)
+	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSL, dbg)
 	if fVerbose {
 		if sign != nil {
 			printfStderr("Sign\t%x\n", sign)
@@ -203,8 +203,8 @@ func main() {
 	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
 		fmt.Sprintf("[encrypt] message authentication (%s)", geheim.GetMACString()),
 	)
-	flag.IntVar(&fSF, "i", geheim.MinSec,
-		fmt.Sprintf("[encrypt] security factor (%d~%d)", geheim.MinSec, geheim.MaxSec),
+	flag.IntVar(&fSL, "i", geheim.MinSec,
+		fmt.Sprintf("[encrypt] security level (%d~%d)", geheim.MinSec, geheim.MaxSec),
 	)
 	if len(os.Args) <= 1 {
 		flag.Usage()
@@ -228,7 +228,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSF, false)) {
+		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSL, false)) {
 			return
 		}
 	}
