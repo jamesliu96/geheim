@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 
 	"github.com/jamesliu96/geheim"
 )
@@ -216,7 +215,7 @@ func main() {
 		return
 	}
 	if fVersion {
-		printfStderr("%s %s (%s) [%d]\n", app, gitTag, gitRev, runtime.NumCPU())
+		printfStderr("%s %s (%s)\n", app, gitTag, gitRev)
 		return
 	}
 	if fGen > 0 {
