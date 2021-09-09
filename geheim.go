@@ -33,7 +33,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, kdf KDF, m
 			err = w.Flush()
 		}
 	})()
-	err = ValidateConfig(cipher, kdf, mode, md, mac, sec)
+	err = ValidateConfig(cipher, kdf, mode, md, mac, sec, false)
 	if err != nil {
 		return
 	}
@@ -112,7 +112,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 		return
 	}
 	cipher, kdf, mode, md, mac, sec, salt, iv := header.Get()
-	err = ValidateConfig(cipher, kdf, mode, md, mac, sec)
+	err = ValidateConfig(cipher, kdf, mode, md, mac, sec, true)
 	if err != nil {
 		return
 	}

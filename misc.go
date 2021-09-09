@@ -14,7 +14,7 @@ func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
 	return nil
 }
 
-func ValidateConfig(cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int) (err error) {
+func ValidateConfig(cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int, compatSec bool) (err error) {
 	err = errInvCipher
 	for _, c := range ciphers {
 		if c == cipher {
@@ -65,7 +65,7 @@ func ValidateConfig(cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int) 
 	if err != nil {
 		return
 	}
-	if sec < MinSec || sec > MaxSec && sec < 100000 || sec > math.MaxUint32 {
+	if !(sec >= MinSec && sec <= MaxSec) && !(compatSec && sec >= 100000 && sec <= math.MaxUint32) {
 		err = errInvSF
 	}
 	return

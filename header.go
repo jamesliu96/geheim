@@ -46,8 +46,8 @@ func getHeader(ver uint32) (header, error) {
 }
 
 type meta struct {
-	Pad uint32
-	Ver uint32
+	Padding uint32
+	Version uint32
 }
 
 func (m *meta) Read(r io.Reader) error {
@@ -55,30 +55,30 @@ func (m *meta) Read(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if m.Pad != padding {
+	if m.Padding != padding {
 		return errMalHead
 	}
 	return nil
 }
 
 func (m *meta) Write(w io.Writer) error {
-	if m.Pad != padding || m.Ver != version {
+	if m.Padding != padding || m.Version != version {
 		return errMalHead
 	}
 	return writeHeader(w, m)
 }
 
 func (m *meta) GetHeader() (header, error) {
-	return getHeader(m.Ver)
+	return getHeader(m.Version)
 }
 
 func newMeta() *meta {
-	return &meta{Pad: padding, Ver: version}
+	return &meta{Padding: padding, Version: version}
 }
 
 type headerV1 struct {
 	Mode, MD uint16
-	Sec      uint32
+	KeyIter  uint32
 	Salt     [16]byte
 	IV       [16]byte
 }
@@ -95,21 +95,15 @@ func (v *headerV1) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV1) Set(_ Cipher, _ KDF, mode Mode, md MD, _ MAC, sec int, salt []byte, iv []byte) {
-	v.Mode = uint16(mode)
-	v.MD = uint16(md)
-	v.Sec = uint32(sec)
-	copy(v.Salt[:], salt)
-	copy(v.IV[:], iv)
-}
+func (v *headerV1) Set(Cipher, KDF, Mode, MD, MAC, int, []byte, []byte) {}
 
-func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int, salt []byte, iv []byte) {
+func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
 	cipher = AES
 	kdf = PBKDF2
 	mode = Mode(v.Mode)
 	md = MD(v.MD)
 	mac = HMAC
-	sec = int(v.Sec)
+	keyIter = int(v.KeyIter)
 	salt = v.Salt[:]
 	iv = v.IV[:]
 	return
@@ -117,7 +111,7 @@ func (v *headerV1) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec
 
 type headerV2 struct {
 	Cipher, KDF, Mode, MD uint8
-	Sec                   uint32
+	KeyIter               uint32
 	Salt                  [16]byte
 	IV                    [16]byte
 }
@@ -134,23 +128,15 @@ func (v *headerV2) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV2) Set(cipher Cipher, kdf KDF, mode Mode, md MD, _ MAC, sec int, salt []byte, iv []byte) {
-	v.Cipher = uint8(cipher)
-	v.KDF = uint8(kdf)
-	v.Mode = uint8(mode)
-	v.MD = uint8(md)
-	v.Sec = uint32(sec)
-	copy(v.Salt[:], salt)
-	copy(v.IV[:ivSizes[cipher]], iv)
-}
+func (v *headerV2) Set(Cipher, KDF, Mode, MD, MAC, int, []byte, []byte) {}
 
-func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, sec int, salt []byte, iv []byte) {
+func (v *headerV2) Get() (cipher Cipher, kdf KDF, mode Mode, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
 	cipher = Cipher(v.Cipher)
 	kdf = KDF(v.KDF)
 	mode = Mode(v.Mode)
 	md = MD(v.MD)
 	mac = HMAC
-	sec = int(v.Sec)
+	keyIter = int(v.KeyIter)
 	salt = v.Salt[:]
 	iv = v.IV[:ivSizes[cipher]]
 	return

@@ -60,9 +60,11 @@ func checkErr(errs ...error) (gotErr bool) {
 	for _, err := range errs {
 		if err != nil {
 			printfStderr("error: %s\n", err)
-			os.Exit(1)
 			gotErr = true
 		}
+	}
+	if gotErr {
+		os.Exit(1)
 	}
 	return
 }
@@ -226,7 +228,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSF)) {
+		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.KDF(fKDF), geheim.Mode(fMode), geheim.MD(fMD), geheim.MAC(fMAC), fSF, false)) {
 			return
 		}
 	}
