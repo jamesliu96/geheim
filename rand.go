@@ -8,7 +8,7 @@ func RandASCIIString(n int) (s string, err error) {
 		return
 	}
 	for i, b := range pass {
-		pass[i] = byte('!' + (b % ('~' - '!' + 1)))
+		pass[i] = '!' + byte(('~'-'!')*(float64(b)/255))
 	}
 	s = string(pass)
 	return
