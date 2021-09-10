@@ -78,8 +78,8 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 		if fi, e := in.Stat(); e != nil {
 			err = e
 			return
-		} else if !fi.Mode().IsRegular() {
-			err = fmt.Errorf("input file `%s` is not regular", fIn)
+		} else if fi.IsDir() {
+			err = fmt.Errorf("input file `%s` is a directory", fIn)
 			return
 		}
 	} else {
@@ -105,8 +105,8 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 			if fi, e := sign.Stat(); e != nil {
 				err = e
 				return
-			} else if !fi.Mode().IsRegular() {
-				err = fmt.Errorf("signature file `%s` is not regular", fSign)
+			} else if fi.IsDir() {
+				err = fmt.Errorf("signature file `%s` is a directory", fSign)
 				return
 			}
 		} else {
