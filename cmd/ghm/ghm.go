@@ -181,7 +181,7 @@ func dec(in, out, signIn *os.File, pass []byte) (err error) {
 
 func main() {
 	flag.Usage = func() {
-		printfStderr("Usage: %s [OPTION]...\nOptions:\n", app)
+		printfStderr("usage: %s [option]...\noptions:\n", app)
 		flag.PrintDefaults()
 	}
 	flag.StringVar(&fIn, "in", "", "input `path` (default `stdin`)")
