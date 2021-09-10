@@ -30,6 +30,7 @@ var (
 	fOverwrite bool
 	fVerbose   bool
 	fVersion   bool
+	fDry       bool
 	fGen       int
 )
 
@@ -57,7 +58,7 @@ func printfStderr(format string, v ...interface{}) {
 
 func checkErr(errs ...error) (gotErr bool) {
 	for _, err := range errs {
-		if err != nil {
+		if err != nil && !errors.Is(err, errDry) {
 			printfStderr("error: %s\n", err)
 			gotErr = true
 		}
@@ -121,6 +122,8 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
+var errDry = errors.New("dry run")
+
 var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, md geheim.MD, mac geheim.MAC, sec int, salt, iv, key []byte) error {
 	if fVerbose {
 		printfStderr("Ver\t%d\n", version)
@@ -133,6 +136,9 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 		printfStderr("Salt\t%x\n", salt)
 		printfStderr("IV\t%x\n", iv)
 		printfStderr("Key\t%x\n", key)
+	}
+	if fDry {
+		return errDry
 	}
 	return nil
 }
@@ -186,6 +192,7 @@ func main() {
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
 	flag.BoolVar(&fVersion, "V", false, "print version")
+	flag.BoolVar(&fDry, "j", false, "dry run")
 	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 	flag.IntVar(&fCipher, "c", int(geheim.DefaultCipher),
 		fmt.Sprintf("[encrypt] cipher (%s)", geheim.GetCipherString()),
