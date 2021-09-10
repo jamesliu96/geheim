@@ -260,8 +260,9 @@ func main() {
 		return
 	}
 	if fDecrypt {
-		checkErr(dec(in, out, sign, pass))
+		err = dec(in, out, sign, pass)
 	} else {
-		checkErr(enc(in, out, sign, pass))
+		err = enc(in, out, sign, pass)
 	}
+	checkErr(err)
 }
