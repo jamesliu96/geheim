@@ -35,10 +35,6 @@ func writeHeader(w io.Writer, v interface{}) error {
 
 func getHeader(ver uint32) (header, error) {
 	switch ver {
-	case headerVer1:
-		return &headerV1{}, nil
-	case headerVer2:
-		return &headerV2{}, nil
 	case headerVer3:
 		return &headerV3{}, nil
 	}
@@ -62,9 +58,6 @@ func (m *meta) Read(r io.Reader) error {
 }
 
 func (m *meta) Write(w io.Writer) error {
-	if m.Padding != padding || m.Version != version {
-		return errMalHead
-	}
 	return writeHeader(w, m)
 }
 
@@ -76,79 +69,10 @@ func newMeta() *meta {
 	return &meta{Padding: padding, Version: version}
 }
 
-type headerV1 struct {
-	Mode, MD uint16
-	KeyIter  uint32
-	Salt     [16]byte
-	IV       [16]byte
-}
-
-func (v *headerV1) Version() int {
-	return int(headerVer1)
-}
-
-func (v *headerV1) Read(r io.Reader) error {
-	return readHeader(r, v)
-}
-
-func (v *headerV1) Write(w io.Writer) error {
-	return writeHeader(w, v)
-}
-
-func (v *headerV1) Set(Cipher, Mode, KDF, MD, MAC, int, []byte, []byte) {}
-
-func (v *headerV1) Get() (cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
-	cipher = AES
-	mode = Mode(v.Mode)
-	kdf = PBKDF2
-	md = MD(v.MD)
-	mac = HMAC
-	keyIter = int(v.KeyIter)
-	salt = v.Salt[:]
-	iv = v.IV[:]
-	return
-}
-
-type headerV2 struct {
-	Cipher, KDF, Mode, MD uint8
-	KeyIter               uint32
-	Salt                  [16]byte
-	IV                    [16]byte
-}
-
-func (v *headerV2) Version() int {
-	return int(headerVer2)
-}
-
-func (v *headerV2) Read(r io.Reader) error {
-	return readHeader(r, v)
-}
-
-func (v *headerV2) Write(w io.Writer) error {
-	return writeHeader(w, v)
-}
-
-func (v *headerV2) Set(Cipher, Mode, KDF, MD, MAC, int, []byte, []byte) {}
-
-func (v *headerV2) Get() (cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, keyIter int, salt []byte, iv []byte) {
-	cipher = Cipher(v.Cipher)
-	mode = Mode(v.Mode)
-	kdf = KDF(v.KDF)
-	md = MD(v.MD)
-	mac = HMAC
-	keyIter = int(v.KeyIter)
-	salt = v.Salt[:]
-	iv = v.IV[:ivSizes[cipher]]
-	return
-}
-
 type headerV3 struct {
-	Cipher, Mode uint8
-	KDF, MD      uint8
-	MAC, Sec     uint8
-	_            [2]byte
-	Salt         [16]byte
-	IV           [16]byte
+	Cipher, Mode, KDF, MD, MAC, Sec, _, _ uint8
+	Salt                                  [16]byte
+	IV                                    [16]byte
 }
 
 func (v *headerV3) Version() int {

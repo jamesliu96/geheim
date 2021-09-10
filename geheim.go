@@ -2,7 +2,6 @@ package geheim
 
 import (
 	"bufio"
-	"crypto/hmac"
 	"io"
 )
 
@@ -33,7 +32,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 			err = w.Flush()
 		}
 	})()
-	err = ValidateConfig(cipher, mode, kdf, md, mac, sec, false)
+	err = ValidateConfig(cipher, mode, kdf, md, mac, sec)
 	if err != nil {
 		return
 	}
@@ -59,21 +58,21 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	}
 	h, mac := getMAC(mac, mdfn, dk)
 	meta := newMeta()
-	err = meta.Write(w)
-	if err != nil {
-		return
-	}
 	header, err := meta.GetHeader()
 	if err != nil {
 		return
 	}
+	header.Set(cipher, mode, kdf, md, mac, sec, salt, iv)
 	if printFn != nil {
 		err = printFn(header.Version(), cipher, mode, kdf, md, mac, sec, salt, iv, dk)
 		if err != nil {
 			return
 		}
 	}
-	header.Set(cipher, mode, kdf, md, mac, sec, salt, iv)
+	err = meta.Write(w)
+	if err != nil {
+		return
+	}
 	err = header.Write(w)
 	if err != nil {
 		return
@@ -112,7 +111,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 		return
 	}
 	cipher, mode, kdf, md, mac, sec, salt, iv := header.Get()
-	err = ValidateConfig(cipher, mode, kdf, md, mac, sec, true)
+	err = ValidateConfig(cipher, mode, kdf, md, mac, sec)
 	if err != nil {
 		return
 	}
@@ -147,7 +146,7 @@ func DecryptVerify(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc, 
 		return
 	}
 	if vSign != nil {
-		if !hmac.Equal(vSign, sign) {
+		if !equal(vSign, sign) {
 			err = errSigVer
 		}
 	}

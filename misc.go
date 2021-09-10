@@ -1,8 +1,8 @@
 package geheim
 
 import (
+	"crypto/subtle"
 	"io"
-	"math"
 )
 
 type PrintFunc func(int, Cipher, Mode, KDF, MD, MAC, int, []byte, []byte, []byte) error
@@ -14,7 +14,7 @@ func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
 	return nil
 }
 
-func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, compatSec bool) (err error) {
+func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int) (err error) {
 	err = errInvCipher
 	for _, c := range ciphers {
 		if c == cipher {
@@ -65,8 +65,12 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, 
 	if err != nil {
 		return
 	}
-	if !(sec >= MinSec && sec <= MaxSec) && !(compatSec && sec >= 100000 && sec <= math.MaxUint32) {
+	if !(sec >= MinSec && sec <= MaxSec) {
 		err = errInvSF
 	}
 	return
+}
+
+func equal(a, b []byte) bool {
+	return subtle.ConstantTimeCompare(a, b) == 1
 }

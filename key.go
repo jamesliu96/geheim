@@ -78,8 +78,7 @@ func getSecParam(sec int) (int, uint32, uint32, int, int, int) {
 			5, 65535 * 2,
 			32768 * 2, 32, 2
 	}
-	r := sec / 100000
-	return sec, uint32(4 * r), uint32(65536 * r), int(32768 * r), 8, 1
+	return getSecParam(MinSec)
 }
 
 func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size int) ([]byte, KDF, error) {

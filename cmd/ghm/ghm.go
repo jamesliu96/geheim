@@ -234,7 +234,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MD(fMD), geheim.MAC(fMAC), fSL, false)) {
+		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MD(fMD), geheim.MAC(fMAC), fSL)) {
 			return
 		}
 	}
