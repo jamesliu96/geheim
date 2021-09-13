@@ -14,5 +14,5 @@ var (
 	errInvMode   = fmt.Errorf("invalid stream mode (%s)", GetModeString())
 	errInvMD     = fmt.Errorf("invalid message digest (%s)", GetMDString())
 	errInvMAC    = fmt.Errorf("invalid message authentication (%s)", GetMACString())
-	errInvSF     = fmt.Errorf("invalid security level (%d~%d)", MinSec, MaxSec)
+	errInvSL     = fmt.Errorf("invalid security level (%d~%d)", MinSec, MaxSec)
 )

@@ -43,7 +43,7 @@ func getSecParam(sec int) (int, uint32, uint32, int, int, int) {
 			32768, 8, 1
 	case 2:
 		return 200000,
-			1, 65535 * 2,
+			1, 131070,
 			32768, 8, 2
 	case 3:
 		return 300000,
@@ -51,7 +51,7 @@ func getSecParam(sec int) (int, uint32, uint32, int, int, int) {
 			32768, 16, 1
 	case 4:
 		return 400000,
-			2, 65535 * 2,
+			2, 131070,
 			32768, 16, 2
 	case 5:
 		return 500000,
@@ -59,24 +59,24 @@ func getSecParam(sec int) (int, uint32, uint32, int, int, int) {
 			32768, 32, 2
 	case 6:
 		return 600000,
-			3, 65535 * 2,
-			32768 * 2, 8, 1
+			3, 131070,
+			65535, 8, 1
 	case 7:
 		return 700000,
 			4, 65535,
-			32768 * 2, 8, 2
+			65535, 8, 2
 	case 8:
 		return 800000,
-			4, 65535 * 2,
-			32768 * 2, 16, 1
+			4, 131070,
+			65535, 16, 1
 	case 9:
 		return 900000,
 			5, 65535,
-			32768 * 2, 16, 2
+			65535, 16, 2
 	case 10:
 		return 1000000,
-			5, 65535 * 2,
-			32768 * 2, 32, 2
+			5, 131070,
+			65535, 32, 2
 	}
 	return getSecParam(MinSec)
 }

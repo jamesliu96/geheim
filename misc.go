@@ -65,8 +65,8 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int) 
 	if err != nil {
 		return
 	}
-	if !(sec >= MinSec && sec <= MaxSec) {
-		err = errInvSF
+	if sec < MinSec || sec > MaxSec {
+		err = errInvSL
 	}
 	return
 }

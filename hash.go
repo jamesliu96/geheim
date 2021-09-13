@@ -1,15 +1,12 @@
 package geheim
 
 import (
-	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
 	"hash"
-	"io"
 	"strings"
 
-	"golang.org/x/crypto/poly1305"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -75,41 +72,4 @@ func getMD(md MD) (func() hash.Hash, MD) {
 		return sha512.New512_256, SHA_512_256
 	}
 	return getMD(DefaultMD)
-}
-
-type MAC uint8
-
-const (
-	HMAC MAC = 1 + iota
-	Poly1305
-)
-
-var MACNames = map[MAC]string{
-	HMAC:     "HMAC",
-	Poly1305: "Poly1305",
-}
-
-var macs = [...]MAC{HMAC, Poly1305}
-
-func GetMACString() string {
-	d := make([]string, len(macs))
-	for i, mac := range macs {
-		d[i] = fmt.Sprintf("%d:%s", mac, MACNames[mac])
-	}
-	return strings.Join(d, ", ")
-}
-
-type messageAuth interface {
-	io.Writer
-	Sum([]byte) []byte
-}
-
-func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (messageAuth, MAC) {
-	switch mac {
-	case HMAC:
-		return hmac.New(mdfn, key), HMAC
-	case Poly1305:
-		return poly1305.New((*[32]byte)(key)), Poly1305
-	}
-	return getMAC(DefaultMAC, mdfn, key)
 }

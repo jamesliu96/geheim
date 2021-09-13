@@ -36,10 +36,10 @@ var (
 
 func flagsSet() (inSet, outSet, signSet, passSet bool) {
 	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "in" {
+		if f.Name == "i" {
 			inSet = true
 		}
-		if f.Name == "out" {
+		if f.Name == "o" {
 			outSet = true
 		}
 		if f.Name == "s" {
@@ -119,6 +119,10 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 			sign, err = os.Create(fSign)
 		}
 	}
+	if fVerbose {
+		printfStderr("Input   %s\n", in.Name())
+		printfStderr("Output  %s\n", out.Name())
+	}
 	return
 }
 
@@ -126,16 +130,16 @@ var errDry = errors.New("dry run")
 
 var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, md geheim.MD, mac geheim.MAC, sec int, salt, iv, key []byte) error {
 	if fVerbose {
-		printfStderr("Ver\t%d\n", version)
-		printfStderr("Cipher\t%s(%d)\n", geheim.CipherNames[cipher], cipher)
-		printfStderr("Mode\t%s(%d)\n", geheim.ModeNames[mode], mode)
-		printfStderr("KDF\t%s(%d)\n", geheim.KDFNames[kdf], kdf)
-		printfStderr("MD\t%s(%d)\n", geheim.MDNames[md], md)
-		printfStderr("MAC\t%s(%d)\n", geheim.MACNames[mac], mac)
-		printfStderr("Sec\t%d\n", sec)
-		printfStderr("Salt\t%x\n", salt)
-		printfStderr("IV\t%x\n", iv)
-		printfStderr("Key\t%x\n", key)
+		printfStderr("Version %d\n", version)
+		printfStderr("Cipher  %s(%d)\n", geheim.CipherNames[cipher], cipher)
+		printfStderr("Mode    %s(%d)\n", geheim.ModeNames[mode], mode)
+		printfStderr("KDF     %s(%d)\n", geheim.KDFNames[kdf], kdf)
+		printfStderr("MD      %s(%d)\n", geheim.MDNames[md], md)
+		printfStderr("MAC     %s(%d)\n", geheim.MACNames[mac], mac)
+		printfStderr("Sec     %d\n", sec)
+		printfStderr("Salt    %x\n", salt)
+		printfStderr("IV      %x\n", iv)
+		printfStderr("Key     %x\n", key)
 	}
 	if fDry {
 		return errDry
@@ -147,7 +151,7 @@ func enc(in, out, signOut *os.File, pass []byte) (err error) {
 	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MD(fMD), geheim.MAC(fMAC), fSL, dbg)
 	if fVerbose {
 		if sign != nil {
-			printfStderr("Sign\t%x\n", sign)
+			printfStderr("Sign    %x\n", sign)
 		}
 	}
 	if err != nil {
@@ -160,20 +164,20 @@ func enc(in, out, signOut *os.File, pass []byte) (err error) {
 }
 
 func dec(in, out, signIn *os.File, pass []byte) (err error) {
-	var vSign []byte
+	var eSign []byte
 	if signIn != nil {
-		vSign, err = io.ReadAll(signIn)
+		eSign, err = io.ReadAll(signIn)
 		if err != nil {
 			return
 		}
 	}
-	sign, err := geheim.DecryptVerify(in, out, pass, dbg, vSign)
+	sign, err := geheim.DecryptVerify(in, out, pass, dbg, eSign)
 	if fVerbose {
-		if vSign != nil {
-			printfStderr("VSign\t%x\n", vSign)
+		if eSign != nil {
+			printfStderr("ESign   %x\n", eSign)
 		}
 		if sign != nil {
-			printfStderr("Sign\t%x\n", sign)
+			printfStderr("Sign    %x\n", sign)
 		}
 	}
 	return
@@ -184,8 +188,8 @@ func main() {
 		printfStderr("usage: %s [option]...\noptions:\n", app)
 		flag.PrintDefaults()
 	}
-	flag.StringVar(&fIn, "in", "", "input `path` (default `stdin`)")
-	flag.StringVar(&fOut, "out", "", "output `path` (default `stdout`)")
+	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
+	flag.StringVar(&fOut, "o", "", "output `path` (default `stdout`)")
 	flag.StringVar(&fSign, "s", "", "signature `path` (bypass if omitted)")
 	flag.StringVar(&fPass, "p", "", "`passphrase` (must be specified if `stdin` is used as input)")
 	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing file")
@@ -209,7 +213,7 @@ func main() {
 	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
 		fmt.Sprintf("[encrypt] message authentication (%s)", geheim.GetMACString()),
 	)
-	flag.IntVar(&fSL, "i", geheim.MinSec,
+	flag.IntVar(&fSL, "e", geheim.MinSec,
 		fmt.Sprintf("[encrypt] security level (%d~%d)", geheim.MinSec, geheim.MaxSec),
 	)
 	if len(os.Args) <= 1 {
