@@ -88,7 +88,7 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	if outSet {
 		if !fOverwrite {
 			if _, e := os.Stat(fOut); e == nil {
-				err = fmt.Errorf("output file `%s` exists, use -y to overwrite", fOut)
+				err = fmt.Errorf("output file `%s` exists, use -f to overwrite", fOut)
 				return
 			}
 		}
