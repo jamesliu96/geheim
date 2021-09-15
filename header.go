@@ -10,8 +10,8 @@ type header interface {
 	Version() int
 	Read(io.Reader) error
 	Write(io.Writer) error
-	Set(Cipher, Mode, KDF, MD, MAC, int, []byte, []byte)
-	Get() (Cipher, Mode, KDF, MD, MAC, int, []byte, []byte)
+	Set(Cipher, Mode, KDF, MAC, MD, int, []byte, []byte)
+	Get() (Cipher, Mode, KDF, MAC, MD, int, []byte, []byte)
 }
 
 const padding uint32 = 0x47484dff
@@ -21,9 +21,10 @@ const (
 	headerVer2
 	headerVer3
 	headerVer4
+	headerVer5
 )
 
-const version = headerVer4
+const version = headerVer5
 
 var headerByteOrder binary.ByteOrder = binary.BigEndian
 
@@ -37,10 +38,10 @@ func writeHeader(w io.Writer, v interface{}) error {
 
 func getHeader(ver uint32) (header, error) {
 	switch ver {
-	case headerVer3:
-		return &headerV3{}, nil
 	case headerVer4:
 		return &headerV4{}, nil
+	case headerVer5:
+		return &headerV5{}, nil
 	}
 	return nil, fmt.Errorf("%s: invalid header version: %d", errMalHead, ver)
 }
@@ -73,47 +74,6 @@ func newMeta() *meta {
 	return &meta{Padding: padding, Version: version}
 }
 
-type headerV3 struct {
-	Cipher, Mode, KDF, MD, MAC, Sec, _, _ uint8
-	Salt                                  [16]byte
-	IV                                    [16]byte
-}
-
-func (v *headerV3) Version() int {
-	return int(headerVer3)
-}
-
-func (v *headerV3) Read(r io.Reader) error {
-	return readHeader(r, v)
-}
-
-func (v *headerV3) Write(w io.Writer) error {
-	return writeHeader(w, v)
-}
-
-func (v *headerV3) Set(cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, salt []byte, iv []byte) {
-	v.Cipher = uint8(cipher)
-	v.Mode = uint8(mode)
-	v.KDF = uint8(kdf)
-	v.MD = uint8(md)
-	v.MAC = uint8(mac)
-	v.Sec = uint8(sec)
-	copy(v.Salt[:], salt)
-	copy(v.IV[:], iv)
-}
-
-func (v *headerV3) Get() (cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, salt []byte, iv []byte) {
-	cipher = Cipher(v.Cipher)
-	mode = Mode(v.Mode)
-	kdf = KDF(v.KDF)
-	md = MD(v.MD)
-	mac = MAC(v.MAC)
-	sec = int(v.Sec)
-	salt = v.Salt[:]
-	iv = v.IV[:ivSizes[cipher]]
-	return
-}
-
 type headerV4 struct {
 	Cipher, Mode, KDF, MD, MAC, Sec, SaltSize, IVSize uint8
 	Salt                                              [16]byte
@@ -132,23 +92,64 @@ func (v *headerV4) Write(w io.Writer) error {
 	return writeHeader(w, v)
 }
 
-func (v *headerV4) Set(cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, salt []byte, iv []byte) {
+func (v *headerV4) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
 	v.Cipher = uint8(cipher)
 	v.Mode = uint8(mode)
 	v.KDF = uint8(kdf)
-	v.MD = uint8(md)
 	v.MAC = uint8(mac)
+	v.MD = uint8(md)
 	v.Sec = uint8(sec)
 	v.SaltSize = uint8(copy(v.Salt[:], salt))
 	v.IVSize = uint8(copy(v.IV[:], iv))
 }
 
-func (v *headerV4) Get() (cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, salt []byte, iv []byte) {
+func (v *headerV4) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
 	cipher = Cipher(v.Cipher)
 	mode = Mode(v.Mode)
 	kdf = KDF(v.KDF)
-	md = MD(v.MD)
 	mac = MAC(v.MAC)
+	md = MD(v.MD)
+	sec = int(v.Sec)
+	salt = v.Salt[:v.SaltSize]
+	iv = v.IV[:v.IVSize]
+	return
+}
+
+type headerV5 struct {
+	Cipher, Mode, KDF, MAC, MD, Sec, SaltSize, IVSize uint8
+	Salt                                              [16]byte
+	IV                                                [16]byte
+}
+
+func (v *headerV5) Version() int {
+	return int(headerVer5)
+}
+
+func (v *headerV5) Read(r io.Reader) error {
+	return readHeader(r, v)
+}
+
+func (v *headerV5) Write(w io.Writer) error {
+	return writeHeader(w, v)
+}
+
+func (v *headerV5) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+	v.Cipher = uint8(cipher)
+	v.Mode = uint8(mode)
+	v.KDF = uint8(kdf)
+	v.MAC = uint8(mac)
+	v.MD = uint8(md)
+	v.Sec = uint8(sec)
+	v.SaltSize = uint8(copy(v.Salt[:], salt))
+	v.IVSize = uint8(copy(v.IV[:], iv))
+}
+
+func (v *headerV5) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+	cipher = Cipher(v.Cipher)
+	mode = Mode(v.Mode)
+	kdf = KDF(v.KDF)
+	mac = MAC(v.MAC)
+	md = MD(v.MD)
 	sec = int(v.Sec)
 	salt = v.Salt[:v.SaltSize]
 	iv = v.IV[:v.IVSize]

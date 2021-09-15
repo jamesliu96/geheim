@@ -18,10 +18,10 @@ var gitRev = "*"
 var (
 	fDecrypt   bool
 	fCipher    int
-	fKDF       int
 	fMode      int
-	fMD        int
+	fKDF       int
 	fMAC       int
+	fMD        int
 	fSL        int
 	fIn        string
 	fOut       string
@@ -128,14 +128,18 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 
 var errDry = errors.New("dry run")
 
-var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, md geheim.MD, mac geheim.MAC, sec int, salt, iv, key []byte) error {
+var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, salt, iv, key []byte) error {
 	if fVerbose {
 		printfStderr("Version %d\n", version)
 		printfStderr("Cipher  %s(%d)\n", geheim.CipherNames[cipher], cipher)
-		printfStderr("Mode    %s(%d)\n", geheim.ModeNames[mode], mode)
+		if cipher == geheim.AES {
+			printfStderr("Mode    %s(%d)\n", geheim.ModeNames[mode], mode)
+		}
 		printfStderr("KDF     %s(%d)\n", geheim.KDFNames[kdf], kdf)
-		printfStderr("MD      %s(%d)\n", geheim.MDNames[md], md)
 		printfStderr("MAC     %s(%d)\n", geheim.MACNames[mac], mac)
+		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
+			printfStderr("MD      %s(%d)\n", geheim.MDNames[md], md)
+		}
 		printfStderr("Sec     %d\n", sec)
 		printfStderr("Salt    %x\n", salt)
 		printfStderr("IV      %x\n", iv)
@@ -148,7 +152,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 }
 
 func enc(in, out, signOut *os.File, pass []byte) (err error) {
-	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MD(fMD), geheim.MAC(fMAC), fSL, dbg)
+	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	if fVerbose {
 		if sign != nil {
 			printfStderr("Sign    %x\n", sign)
@@ -207,11 +211,11 @@ func main() {
 	flag.IntVar(&fKDF, "k", int(geheim.DefaultKDF),
 		fmt.Sprintf("[encrypt] key derivation function (%s)", geheim.GetKDFString()),
 	)
-	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
-		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMDString()),
-	)
 	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
 		fmt.Sprintf("[encrypt] message authentication (%s)", geheim.GetMACString()),
+	)
+	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
+		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMDString()),
 	)
 	flag.IntVar(&fSL, "e", geheim.MinSec,
 		fmt.Sprintf("[encrypt] security level (%d~%d)", geheim.MinSec, geheim.MaxSec),
@@ -238,7 +242,7 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MD(fMD), geheim.MAC(fMAC), fSL)) {
+		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL)) {
 			return
 		}
 	}

@@ -20,7 +20,7 @@ const (
 	MaxSec        = 10
 )
 
-func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, md MD, mac MAC, sec int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
@@ -32,7 +32,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 			err = w.Flush()
 		}
 	})()
-	err = ValidateConfig(cipher, mode, kdf, md, mac, sec)
+	err = ValidateConfig(cipher, mode, kdf, mac, md, sec)
 	if err != nil {
 		return
 	}
@@ -46,7 +46,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
-	sm, mode := getStreamMode(mode, false)
+	sm, mode := getStreamMode(mode)
 	mdfn, md := getMD(md)
 	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
 	if err != nil {
@@ -62,9 +62,9 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
-	header.Set(cipher, mode, kdf, md, mac, sec, salt, iv)
+	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, md, mac, sec, salt, iv, dk)
+		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, salt, iv, dk)
 		if err != nil {
 			return
 		}
@@ -82,6 +82,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 		return
 	}
 	sign = h.Sum(nil)
+	s.XORKeyStream(sign, sign)
 	return
 }
 
@@ -110,12 +111,12 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	cipher, mode, kdf, md, mac, sec, salt, iv := header.Get()
-	err = ValidateConfig(cipher, mode, kdf, md, mac, sec)
+	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
+	err = ValidateConfig(cipher, mode, kdf, mac, md, sec)
 	if err != nil {
 		return
 	}
-	sm, mode := getStreamMode(mode, true)
+	sm, mode := getStreamMode(mode)
 	mdfn, md := getMD(md)
 	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
 	if err != nil {
@@ -127,7 +128,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	}
 	h, mac := getMAC(mac, mdfn, dk)
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, md, mac, sec, salt, iv, dk)
+		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, salt, iv, dk)
 		if err != nil {
 			return
 		}
@@ -137,6 +138,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 		return
 	}
 	sign = h.Sum(nil)
+	s.XORKeyStream(sign, sign)
 	return
 }
 
