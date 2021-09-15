@@ -12,10 +12,10 @@ const (
 
 const (
 	DefaultCipher = AES
-	DefaultKDF    = PBKDF2
 	DefaultMode   = CTR
-	DefaultMD     = SHA_256
+	DefaultKDF    = PBKDF2
 	DefaultMAC    = HMAC
+	DefaultMD     = SHA_256
 	MinSec        = 1
 	MaxSec        = 10
 )

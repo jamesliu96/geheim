@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"fmt"
 	"hash"
-	"io"
 	"strings"
 
 	"golang.org/x/crypto/poly1305"
@@ -32,12 +31,7 @@ func GetMACString() string {
 	return strings.Join(d, ", ")
 }
 
-type messageAuth interface {
-	io.Writer
-	Sum([]byte) []byte
-}
-
-func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (messageAuth, MAC) {
+func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (sumWriter, MAC) {
 	switch mac {
 	case HMAC:
 		return hmac.New(mdfn, key), HMAC

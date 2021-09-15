@@ -5,11 +5,18 @@ import (
 	"io"
 )
 
+type sumWriter interface {
+	io.Writer
+	Sum([]byte) []byte
+}
+
 type PrintFunc func(int, Cipher, Mode, KDF, MAC, MD, int, []byte, []byte, []byte) error
 
-func checkArgs(in io.Reader, out io.Writer, pass []byte) error {
-	if in == nil || out == nil || pass == nil {
-		return errInvArg
+func checkArgs(args ...interface{}) error {
+	for _, arg := range args {
+		if arg == nil {
+			return errInvArg
+		}
 	}
 	return nil
 }
