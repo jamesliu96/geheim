@@ -46,7 +46,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
-	sm, mode := getStreamMode(mode)
+	sm, mode := getStreamMode(mode, false)
 	mdfn, md := getMD(md)
 	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
 	if err != nil {
@@ -82,7 +82,6 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 		return
 	}
 	sign = h.Sum(nil)
-	s.XORKeyStream(sign, sign)
 	return
 }
 
@@ -116,7 +115,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	sm, mode := getStreamMode(mode)
+	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
 	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
 	if err != nil {
@@ -138,7 +137,6 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 		return
 	}
 	sign = h.Sum(nil)
-	s.XORKeyStream(sign, sign)
 	return
 }
 

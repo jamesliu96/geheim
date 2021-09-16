@@ -56,15 +56,17 @@ type Mode uint8
 
 const (
 	CTR Mode = 1 + iota
+	CFB
 	OFB
 )
 
 var ModeNames = map[Mode]string{
 	CTR: "CTR",
+	CFB: "CFB",
 	OFB: "OFB",
 }
 
-var modes = [...]Mode{CTR, OFB}
+var modes = [...]Mode{CTR, CFB, OFB}
 
 func GetModeString() string {
 	d := make([]string, len(modes))
@@ -74,14 +76,20 @@ func GetModeString() string {
 	return strings.Join(d, ", ")
 }
 
-func getStreamMode(mode Mode) (func(cipher.Block, []byte) cipher.Stream, Mode) {
+func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {
 	switch mode {
 	case CTR:
 		return cipher.NewCTR, CTR
+	case CFB:
+		if decrypt {
+			return cipher.NewCFBDecrypter, CFB
+		} else {
+			return cipher.NewCFBEncrypter, CFB
+		}
 	case OFB:
 		return cipher.NewOFB, OFB
 	}
-	return getStreamMode(DefaultMode)
+	return getStreamMode(DefaultMode, decrypt)
 }
 
 func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
