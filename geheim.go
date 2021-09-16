@@ -2,6 +2,7 @@ package geheim
 
 import (
 	"bufio"
+	"errors"
 	"io"
 )
 
@@ -13,11 +14,10 @@ const (
 const (
 	DefaultCipher = AES
 	DefaultMode   = CTR
-	DefaultKDF    = PBKDF2
+	DefaultKDF    = Argon2
 	DefaultMAC    = HMAC
 	DefaultMD     = SHA_256
-	MinSec        = 1
-	MaxSec        = 10
+	DefaultSec    = 10
 )
 
 func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
@@ -52,7 +52,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
-	s, cipher, err := getStream(cipher, dk, iv, sm)
+	s, cipher, err := newCipherStream(cipher, dk, iv, sm)
 	if err != nil {
 		return
 	}
@@ -77,7 +77,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
-	_, err = io.Copy(io.MultiWriter(newStreamWriter(s, w), h), r)
+	_, err = io.Copy(io.MultiWriter(newCipherStreamWriter(s, w), h), r)
 	if err != nil {
 		return
 	}
@@ -121,7 +121,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	s, cipher, err := getStream(cipher, dk, iv, sm)
+	s, cipher, err := newCipherStream(cipher, dk, iv, sm)
 	if err != nil {
 		return
 	}
@@ -132,7 +132,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 			return
 		}
 	}
-	_, err = io.Copy(io.MultiWriter(w, h), newStreamReader(s, r))
+	_, err = io.Copy(io.MultiWriter(w, h), newCipherStreamReader(s, r))
 	if err != nil {
 		return
 	}
@@ -147,7 +147,7 @@ func DecryptVerify(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc, 
 	}
 	if vSign != nil {
 		if !equal(vSign, sign) {
-			err = errSigVer
+			err = errors.New("signature verification failed")
 		}
 	}
 	return

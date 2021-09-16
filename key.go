@@ -35,61 +35,26 @@ func GetKDFString() string {
 	return strings.Join(d, ", ")
 }
 
-func getSecParam(sec int) (int, uint32, uint32, int, int, int) {
-	switch sec {
-	case 1:
-		return 100000,
-			1, 65535,
-			32768, 8, 1
-	case 2:
-		return 200000,
-			1, 131070,
-			32768, 8, 2
-	case 3:
-		return 300000,
-			2, 65535,
-			32768, 16, 1
-	case 4:
-		return 400000,
-			2, 131070,
-			32768, 16, 2
-	case 5:
-		return 500000,
-			3, 65535,
-			32768, 32, 2
-	case 6:
-		return 600000,
-			3, 131070,
-			65535, 8, 1
-	case 7:
-		return 700000,
-			4, 65535,
-			65535, 8, 2
-	case 8:
-		return 800000,
-			4, 131070,
-			65535, 16, 1
-	case 9:
-		return 900000,
-			5, 65535,
-			65535, 16, 2
-	case 10:
-		return 1000000,
-			5, 131070,
-			65535, 32, 2
-	}
-	return getSecParam(MinSec)
+const (
+	MinSec = 1
+	MaxSec = 20
+)
+
+func GetSecIterMemory(sec int) (int, int) {
+	return 100000 * sec, 1 << (20 + sec)
 }
 
 func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size int) ([]byte, KDF, error) {
-	iter, time, memory, N, p, r := getSecParam(sec)
+	iter, memory := GetSecIterMemory(sec)
 	switch kdf {
 	case PBKDF2:
 		return pbkdf2.Key(pass, salt, iter, size, mdfn), PBKDF2, nil
 	case Argon2:
-		return argon2.IDKey(pass, salt, time, memory, uint8(runtime.NumCPU()), uint32(size)), Argon2, nil
+		return argon2.IDKey(pass, salt, 1, uint32(memory/1024), uint8(runtime.NumCPU()), uint32(size)), Argon2, nil
 	case Scrypt:
-		key, err := scrypt.Key(pass, salt, N, p, r, size)
+		r, p := 8, 1
+		N := memory / 128 / r / p
+		key, err := scrypt.Key(pass, salt, N, r, p, size)
 		return key, Scrypt, err
 	}
 	return deriveKey(DefaultKDF, pass, salt, sec, mdfn, size)

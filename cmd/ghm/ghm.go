@@ -126,6 +126,28 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
+func formatSize(n int) string {
+	var unit byte
+	switch {
+	case n >= 1<<50:
+		n /= 1 << 40
+		unit = 'P'
+	case n >= 1<<40:
+		n /= 1 << 40
+		unit = 'T'
+	case n >= 1<<30:
+		n /= 1 << 30
+		unit = 'G'
+	case n >= 1<<20:
+		n /= 1 << 20
+		unit = 'M'
+	case n >= 1<<10:
+		n /= 1 << 10
+		unit = 'K'
+	}
+	return fmt.Sprintf("%d%cB", n, unit)
+}
+
 var errDry = errors.New("dry run")
 
 var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, salt, iv, key []byte) error {
@@ -140,7 +162,13 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
 			printfStderr("MD      %s(%d)\n", geheim.MDNames[md], md)
 		}
-		printfStderr("Sec     %d\n", sec)
+		iter, memory := geheim.GetSecIterMemory(sec)
+		if kdf == geheim.PBKDF2 {
+			printfStderr("Sec     %d(%d)\n", sec, iter)
+		}
+		if kdf == geheim.Argon2 || kdf == geheim.Scrypt {
+			printfStderr("Sec     %d(%s)\n", sec, formatSize(memory))
+		}
 		printfStderr("Salt    %x\n", salt)
 		printfStderr("IV      %x\n", iv)
 		printfStderr("Key     %x\n", key)
@@ -203,22 +231,22 @@ func main() {
 	flag.BoolVar(&fDry, "j", false, "dry run")
 	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 	flag.IntVar(&fCipher, "c", int(geheim.DefaultCipher),
-		fmt.Sprintf("[encrypt] cipher (%s)", geheim.GetCipherString()),
+		fmt.Sprintf("[encrypt] %s (%s)", geheim.CipherDesc, geheim.GetCipherString()),
 	)
 	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
-		fmt.Sprintf("[encrypt] stream mode (%s)", geheim.GetModeString()),
+		fmt.Sprintf("[encrypt] %s (%s)", geheim.ModeDesc, geheim.GetModeString()),
 	)
 	flag.IntVar(&fKDF, "k", int(geheim.DefaultKDF),
-		fmt.Sprintf("[encrypt] key derivation function (%s)", geheim.GetKDFString()),
+		fmt.Sprintf("[encrypt] %s (%s)", geheim.KDFDesc, geheim.GetKDFString()),
 	)
 	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
-		fmt.Sprintf("[encrypt] message authentication (%s)", geheim.GetMACString()),
+		fmt.Sprintf("[encrypt] %s (%s)", geheim.MACDesc, geheim.GetMACString()),
 	)
 	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
-		fmt.Sprintf("[encrypt] message digest (%s)", geheim.GetMDString()),
+		fmt.Sprintf("[encrypt] %s (%s)", geheim.MDDesc, geheim.GetMDString()),
 	)
-	flag.IntVar(&fSL, "e", geheim.MinSec,
-		fmt.Sprintf("[encrypt] security level (%d~%d)", geheim.MinSec, geheim.MaxSec),
+	flag.IntVar(&fSL, "e", geheim.DefaultSec,
+		fmt.Sprintf("[encrypt] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
 	)
 	if len(os.Args) <= 1 {
 		flag.Usage()

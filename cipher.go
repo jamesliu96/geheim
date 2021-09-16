@@ -37,21 +37,6 @@ func GetCipherString() string {
 	return strings.Join(d, ", ")
 }
 
-func getStream(cipher Cipher, key []byte, iv []byte, sm func(cipher.Block, []byte) cipher.Stream) (cipher.Stream, Cipher, error) {
-	switch cipher {
-	case AES:
-		block, err := aes.NewCipher(key)
-		if err != nil {
-			return nil, AES, err
-		}
-		return sm(block, iv), AES, nil
-	case Chacha20:
-		stream, err := chacha20.NewUnauthenticatedCipher(key, iv)
-		return stream, Chacha20, err
-	}
-	return getStream(DefaultCipher, key, iv, sm)
-}
-
 type Mode uint8
 
 const (
@@ -92,10 +77,25 @@ func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.S
 	return getStreamMode(DefaultMode, decrypt)
 }
 
-func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
+func newCipherStream(cipher Cipher, key []byte, iv []byte, sm func(cipher.Block, []byte) cipher.Stream) (cipher.Stream, Cipher, error) {
+	switch cipher {
+	case AES:
+		block, err := aes.NewCipher(key)
+		if err != nil {
+			return nil, AES, err
+		}
+		return sm(block, iv), AES, nil
+	case Chacha20:
+		stream, err := chacha20.NewUnauthenticatedCipher(key, iv)
+		return stream, Chacha20, err
+	}
+	return newCipherStream(DefaultCipher, key, iv, sm)
+}
+
+func newCipherStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
 	return &cipher.StreamReader{S: stream, R: r}
 }
 
-func newStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
+func newCipherStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
 	return &cipher.StreamWriter{S: stream, W: w}
 }

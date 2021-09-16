@@ -2,7 +2,18 @@ package geheim
 
 import (
 	"crypto/subtle"
+	"errors"
+	"fmt"
 	"io"
+)
+
+const (
+	CipherDesc = "cipher"
+	ModeDesc   = "stream mode"
+	KDFDesc    = "key derivation"
+	MACDesc    = "message authentication"
+	MDDesc     = "message digest"
+	SecDesc    = "security level"
 )
 
 type sumWriter interface {
@@ -15,14 +26,14 @@ type PrintFunc func(int, Cipher, Mode, KDF, MAC, MD, int, []byte, []byte, []byte
 func checkArgs(args ...interface{}) error {
 	for _, arg := range args {
 		if arg == nil {
-			return errInvArg
+			return errors.New("invalid argument")
 		}
 	}
 	return nil
 }
 
 func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) (err error) {
-	err = errInvCipher
+	err = fmt.Errorf("invalid %s (%s)", CipherDesc, GetCipherString())
 	for _, c := range ciphers {
 		if c == cipher {
 			err = nil
@@ -32,7 +43,7 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) 
 	if err != nil {
 		return
 	}
-	err = errInvMode
+	err = fmt.Errorf("invalid %s (%s)", ModeDesc, GetModeString())
 	for _, m := range modes {
 		if m == mode {
 			err = nil
@@ -42,7 +53,7 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) 
 	if err != nil {
 		return
 	}
-	err = errInvKDF
+	err = fmt.Errorf("invalid %s (%s)", KDFDesc, GetKDFString())
 	for _, k := range kdfs {
 		if k == kdf {
 			err = nil
@@ -52,7 +63,7 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) 
 	if err != nil {
 		return
 	}
-	err = errInvMAC
+	err = fmt.Errorf("invalid %s (%s)", MACDesc, GetMACString())
 	for _, m := range macs {
 		if m == mac {
 			err = nil
@@ -62,7 +73,7 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) 
 	if err != nil {
 		return
 	}
-	err = errInvMD
+	err = fmt.Errorf("invalid %s (%s)", MDDesc, GetMDString())
 	for _, m := range mds {
 		if m == md {
 			err = nil
@@ -73,7 +84,7 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) 
 		return
 	}
 	if sec < MinSec || sec > MaxSec {
-		err = errInvSL
+		err = fmt.Errorf("invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 	}
 	return
 }

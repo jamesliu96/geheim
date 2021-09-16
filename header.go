@@ -2,6 +2,7 @@ package geheim
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -43,7 +44,7 @@ func getHeader(ver uint32) (header, error) {
 	case headerVer5:
 		return &headerV5{}, nil
 	}
-	return nil, fmt.Errorf("%s: invalid header version: %d", errMalHead, ver)
+	return nil, fmt.Errorf("unsupported header version: %d", ver)
 }
 
 type meta struct {
@@ -57,7 +58,7 @@ func (m *meta) Read(r io.Reader) error {
 		return err
 	}
 	if m.Padding != padding {
-		return errMalHead
+		return errors.New("malformed header")
 	}
 	return nil
 }
