@@ -64,7 +64,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	}
 	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, salt, iv, dk)
+		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, dk)
 		if err != nil {
 			return
 		}
@@ -127,7 +127,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	}
 	h, mac := getMAC(mac, mdfn, dk)
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, salt, iv, dk)
+		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, dk)
 		if err != nil {
 			return
 		}

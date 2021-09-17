@@ -21,7 +21,7 @@ type sumWriter interface {
 	Sum([]byte) []byte
 }
 
-type PrintFunc func(int, Cipher, Mode, KDF, MAC, MD, int, []byte, []byte, []byte) error
+type PrintFunc func(int, Cipher, Mode, KDF, MAC, MD, int, []byte, []byte, []byte, []byte) error
 
 func checkArgs(args ...interface{}) error {
 	for _, arg := range args {

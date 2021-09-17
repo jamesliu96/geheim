@@ -157,8 +157,8 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 		}
 	}
 	if fVerbose {
-		printfStderr("Input   %s\n", in.Name())
-		printfStderr("Output  %s\n", out.Name())
+		printfStderr("%-8s%s\n", "INPUT", in.Name())
+		printfStderr("%-8s%s\n", "OUTPUT", out.Name())
 	}
 	return
 }
@@ -187,28 +187,29 @@ func formatSize(n int) string {
 
 var errDry = errors.New("dry run")
 
-var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, salt, iv, key []byte) error {
+var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
 	if fVerbose {
-		printfStderr("Version %d\n", version)
-		printfStderr("Cipher  %s(%d)\n", geheim.CipherNames[cipher], cipher)
+		printfStderr("%-8s%d\n", "VERSION", version)
+		printfStderr("%-8s%s(%d)\n", "CIPHER", geheim.CipherNames[cipher], cipher)
 		if cipher == geheim.AES {
-			printfStderr("Mode    %s(%d)\n", geheim.ModeNames[mode], mode)
+			printfStderr("%-8s%s(%d)\n", "MODE", geheim.ModeNames[mode], mode)
 		}
-		printfStderr("KDF     %s(%d)\n", geheim.KDFNames[kdf], kdf)
-		printfStderr("MAC     %s(%d)\n", geheim.MACNames[mac], mac)
+		printfStderr("%-8s%s(%d)\n", "KDF", geheim.KDFNames[kdf], kdf)
+		printfStderr("%-8s%s(%d)\n", "MAC", geheim.MACNames[mac], mac)
 		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
-			printfStderr("MD      %s(%d)\n", geheim.MDNames[md], md)
+			printfStderr("%-8s%s(%d)\n", "MD", geheim.MDNames[md], md)
 		}
 		iter, memory := geheim.GetSecIterMemory(sec)
 		if kdf == geheim.PBKDF2 {
-			printfStderr("Sec     %d(%d)\n", sec, iter)
+			printfStderr("%-8s%d(%d)\n", "SEC", sec, iter)
 		}
 		if kdf == geheim.Argon2 || kdf == geheim.Scrypt {
-			printfStderr("Sec     %d(%s)\n", sec, formatSize(memory))
+			printfStderr("%-8s%d(%s)\n", "SEC", sec, formatSize(memory))
 		}
-		printfStderr("Salt    %x\n", salt)
-		printfStderr("IV      %x\n", iv)
-		printfStderr("Key     %x\n", key)
+		printfStderr("%-8s%s\n", "PASS", pass)
+		printfStderr("%-8s%x\n", "SALT", salt)
+		printfStderr("%-8s%x\n", "IV", iv)
+		printfStderr("%-8s%x\n", "KEY", key)
 	}
 	if fDry {
 		return errDry
@@ -220,7 +221,7 @@ func enc(in, out, signOut *os.File, pass []byte) (err error) {
 	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	if fVerbose {
 		if sign != nil {
-			printfStderr("Sign    %x\n", sign)
+			printfStderr("%-8s%x\n", "SIGN", sign)
 		}
 	}
 	if err != nil {
@@ -243,10 +244,10 @@ func dec(in, out, signIn *os.File, pass []byte) (err error) {
 	sign, err := geheim.DecryptVerify(in, out, pass, dbg, eSign)
 	if fVerbose {
 		if eSign != nil {
-			printfStderr("ESign   %x\n", eSign)
+			printfStderr("%-8s%x\n", "ESIGN", eSign)
 		}
 		if sign != nil {
-			printfStderr("Sign    %x\n", sign)
+			printfStderr("%-8s%x\n", "SIGN", sign)
 		}
 	}
 	return
