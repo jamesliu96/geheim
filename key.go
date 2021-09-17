@@ -40,8 +40,10 @@ const (
 	MaxSec = 20
 )
 
-func GetSecIterMemory(sec int) (int, int) {
-	return 100000 * sec, 1 << (20 + sec)
+func GetSecIterMemory(sec int) (iter int, memory int) {
+	iter = 100000 * sec
+	memory = 1 << (20 + sec)
+	return
 }
 
 func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size int) ([]byte, KDF, error) {
