@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 
 	"github.com/jamesliu96/geheim"
+	"golang.org/x/term"
 )
 
 const app = "ghm"
@@ -67,6 +69,41 @@ func checkErr(errs ...error) (gotErr bool) {
 		os.Exit(1)
 	}
 	return
+}
+
+func readPass(p *[]byte, question string) error {
+	for len(*p) == 0 {
+		printfStderr(question)
+		password, err := term.ReadPassword(int(os.Stdin.Fd()))
+		printfStderr("\n")
+		if err != nil {
+			return err
+		}
+		*p = password
+	}
+	return nil
+}
+
+func getPass(passSet bool) ([]byte, error) {
+	if passSet {
+		return []byte(fPass), nil
+	}
+	var pass []byte
+	err := readPass(&pass, "enter passphrase: ")
+	if err != nil {
+		return nil, err
+	}
+	if !fDecrypt {
+		var vpass []byte
+		err := readPass(&vpass, "verify passphrase: ")
+		if err != nil {
+			return nil, err
+		}
+		if !bytes.Equal(pass, vpass) {
+			return nil, errors.New("passphrase verification failed")
+		}
+	}
+	return pass, nil
 }
 
 func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
