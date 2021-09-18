@@ -1,6 +1,7 @@
 package geheim
 
 import (
+	"errors"
 	"fmt"
 	"hash"
 	"runtime"
@@ -10,6 +11,8 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
 )
+
+const saltSize = 16
 
 type KDF uint8
 
@@ -46,7 +49,17 @@ func GetSecIterMemory(sec int) (iter int, memory int) {
 	return
 }
 
+func checkSaltSize(salt []byte) error {
+	if saltSize != len(salt) {
+		return errors.New("invalid salt size")
+	}
+	return nil
+}
+
 func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size int) ([]byte, KDF, error) {
+	if err := checkSaltSize(salt); err != nil {
+		return nil, kdf, err
+	}
 	iter, memory := GetSecIterMemory(sec)
 	switch kdf {
 	case PBKDF2:

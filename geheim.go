@@ -7,11 +7,6 @@ import (
 )
 
 const (
-	saltSize = 16
-	keySize  = 32
-)
-
-const (
 	DefaultCipher = AES
 	DefaultMode   = CTR
 	DefaultKDF    = Argon2
@@ -48,7 +43,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	}
 	sm, mode := getStreamMode(mode, false)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
+	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
 	if err != nil {
 		return
 	}
@@ -117,7 +112,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	}
 	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySize)
+	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
 	if err != nil {
 		return
 	}

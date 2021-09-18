@@ -3,6 +3,7 @@ package geheim
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -25,6 +26,11 @@ var CipherNames = map[Cipher]string{
 var ivSizes = map[Cipher]int{
 	AES:      aes.BlockSize,
 	Chacha20: chacha20.NonceSize,
+}
+
+var keySizes = map[Cipher]int{
+	AES:      32,
+	Chacha20: chacha20.KeySize,
 }
 
 var ciphers = [...]Cipher{AES, Chacha20}
@@ -77,7 +83,29 @@ func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.S
 	return getStreamMode(DefaultMode, decrypt)
 }
 
+func checkKeySize(cipher Cipher, key []byte) error {
+	expected := keySizes[cipher]
+	if expected != len(key) {
+		return errors.New("invalid key size")
+	}
+	return nil
+}
+
+func checkIVSize(cipher Cipher, iv []byte) error {
+	expected := ivSizes[cipher]
+	if expected != len(iv) {
+		return errors.New("invalid nonce size")
+	}
+	return nil
+}
+
 func newCipherStream(cipher Cipher, key []byte, iv []byte, sm func(cipher.Block, []byte) cipher.Stream) (cipher.Stream, Cipher, error) {
+	if err := checkKeySize(cipher, key); err != nil {
+		return nil, cipher, err
+	}
+	if err := checkIVSize(cipher, iv); err != nil {
+		return nil, cipher, err
+	}
 	switch cipher {
 	case AES:
 		block, err := aes.NewCipher(key)
