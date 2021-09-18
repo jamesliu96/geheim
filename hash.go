@@ -7,6 +7,7 @@ import (
 	"hash"
 	"strings"
 
+	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -23,6 +24,9 @@ const (
 	SHA_512
 	SHA_512_224
 	SHA_512_256
+	BLAKE_256
+	BLAKE_384
+	BLAKE_512
 )
 
 var MDNames = map[MD]string{
@@ -36,9 +40,12 @@ var MDNames = map[MD]string{
 	SHA_512:     "SHA-512",
 	SHA_512_224: "SHA-512-224",
 	SHA_512_256: "SHA-512-256",
+	BLAKE_256:   "BLAKE-256",
+	BLAKE_384:   "BLAKE-384",
+	BLAKE_512:   "BLAKE-512",
 }
 
-var mds = [...]MD{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256}
+var mds = [...]MD{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256, BLAKE_256, BLAKE_384, BLAKE_512}
 
 func GetMDString() string {
 	d := make([]string, len(mds))
@@ -46,6 +53,21 @@ func GetMDString() string {
 		d[i] = fmt.Sprintf("%d:%s", md, MDNames[md])
 	}
 	return strings.Join(d, ", ")
+}
+
+func blake2bNew256() hash.Hash {
+	hash, _ := blake2b.New256(nil)
+	return hash
+}
+
+func blake2bNew384() hash.Hash {
+	hash, _ := blake2b.New384(nil)
+	return hash
+}
+
+func blake2bNew512() hash.Hash {
+	hash, _ := blake2b.New512(nil)
+	return hash
 }
 
 func getMD(md MD) (func() hash.Hash, MD) {
@@ -70,6 +92,12 @@ func getMD(md MD) (func() hash.Hash, MD) {
 		return sha512.New512_224, SHA_512_224
 	case SHA_512_256:
 		return sha512.New512_256, SHA_512_256
+	case BLAKE_256:
+		return blake2bNew256, BLAKE_256
+	case BLAKE_384:
+		return blake2bNew384, BLAKE_384
+	case BLAKE_512:
+		return blake2bNew512, BLAKE_512
 	}
 	return getMD(DefaultMD)
 }
