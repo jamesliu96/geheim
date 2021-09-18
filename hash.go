@@ -24,9 +24,9 @@ const (
 	SHA_512
 	SHA_512_224
 	SHA_512_256
-	BLAKE_256
-	BLAKE_384
-	BLAKE_512
+	BLAKE2b_256
+	BLAKE2b_384
+	BLAKE2b_512
 )
 
 var MDNames = map[MD]string{
@@ -38,14 +38,14 @@ var MDNames = map[MD]string{
 	SHA_256:     "SHA-256",
 	SHA_384:     "SHA-384",
 	SHA_512:     "SHA-512",
-	SHA_512_224: "SHA-512-224",
-	SHA_512_256: "SHA-512-256",
-	BLAKE_256:   "BLAKE-256",
-	BLAKE_384:   "BLAKE-384",
-	BLAKE_512:   "BLAKE-512",
+	SHA_512_224: "SHA-512/224",
+	SHA_512_256: "SHA-512/256",
+	BLAKE2b_256: "BLAKE2b-256",
+	BLAKE2b_384: "BLAKE2b-384",
+	BLAKE2b_512: "BLAKE2b-512",
 }
 
-var mds = [...]MD{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256, BLAKE_256, BLAKE_384, BLAKE_512}
+var mds = [...]MD{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256, BLAKE2b_256, BLAKE2b_384, BLAKE2b_512}
 
 func GetMDString() string {
 	d := make([]string, len(mds))
@@ -92,12 +92,12 @@ func getMD(md MD) (func() hash.Hash, MD) {
 		return sha512.New512_224, SHA_512_224
 	case SHA_512_256:
 		return sha512.New512_256, SHA_512_256
-	case BLAKE_256:
-		return blake2bNew256, BLAKE_256
-	case BLAKE_384:
-		return blake2bNew384, BLAKE_384
-	case BLAKE_512:
-		return blake2bNew512, BLAKE_512
+	case BLAKE2b_256:
+		return blake2bNew256, BLAKE2b_256
+	case BLAKE2b_384:
+		return blake2bNew384, BLAKE2b_384
+	case BLAKE2b_512:
+		return blake2bNew512, BLAKE2b_512
 	}
 	return getMD(DefaultMD)
 }
