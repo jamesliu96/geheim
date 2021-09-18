@@ -27,7 +27,7 @@ func GetMACString() string {
 	return strings.Join(d, ", ")
 }
 
-func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (sumWriter, MAC) {
+func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (hash.Hash, MAC) {
 	switch mac {
 	case HMAC:
 		return hmac.New(mdfn, key), HMAC

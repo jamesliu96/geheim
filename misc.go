@@ -4,7 +4,6 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"io"
 )
 
 const (
@@ -15,11 +14,6 @@ const (
 	MDDesc     = "message digest"
 	SecDesc    = "security level"
 )
-
-type sumWriter interface {
-	io.Writer
-	Sum([]byte) []byte
-}
 
 type PrintFunc func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, key []byte) error
 
