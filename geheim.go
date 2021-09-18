@@ -135,13 +135,13 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	return
 }
 
-func DecryptVerify(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc, vSign []byte) (sign []byte, err error) {
+func DecryptVerify(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc, eSign []byte) (sign []byte, err error) {
 	sign, err = Decrypt(in, out, pass, printFn)
 	if err != nil {
 		return
 	}
-	if vSign != nil {
-		if !equal(vSign, sign) {
+	if eSign != nil {
+		if !equal(eSign, sign) {
 			err = errors.New("signature verification failed")
 		}
 	}
