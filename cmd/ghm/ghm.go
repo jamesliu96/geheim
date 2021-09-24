@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/jamesliu96/geheim"
 	"golang.org/x/term"
@@ -31,6 +32,7 @@ var (
 	fPass      string
 	fOverwrite bool
 	fVerbose   bool
+	fFancy     bool
 	fVersion   bool
 	fDry       bool
 	fGen       int
@@ -106,7 +108,7 @@ func getPass(passSet bool) ([]byte, error) {
 	return pass, nil
 }
 
-func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
+func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inSize int64, err error) {
 	if inSet {
 		in, err = os.Open(fIn)
 		if err != nil {
@@ -115,9 +117,12 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 		if fi, e := in.Stat(); e != nil {
 			err = e
 			return
-		} else if fi.IsDir() {
-			err = fmt.Errorf("input file `%s` is a directory", fIn)
-			return
+		} else {
+			inSize = fi.Size()
+			if fi.IsDir() {
+				err = fmt.Errorf("input file `%s` is a directory", fIn)
+				return
+			}
 		}
 	} else {
 		in = os.Stdin
@@ -165,27 +170,78 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 
 func formatSize(n int64) string {
 	var unit byte
+	nn := float64(n)
+	f := "%.f"
 	switch {
 	case n >= 1<<60:
-		n /= 1 << 60
+		nn /= 1 << 60
 		unit = 'E'
 	case n >= 1<<50:
-		n /= 1 << 50
+		nn /= 1 << 50
 		unit = 'P'
 	case n >= 1<<40:
-		n /= 1 << 40
+		nn /= 1 << 40
 		unit = 'T'
 	case n >= 1<<30:
-		n /= 1 << 30
+		nn /= 1 << 30
 		unit = 'G'
 	case n >= 1<<20:
-		n /= 1 << 20
+		nn /= 1 << 20
 		unit = 'M'
 	case n >= 1<<10:
-		n /= 1 << 10
+		nn /= 1 << 10
 		unit = 'K'
 	}
-	return fmt.Sprintf("%d%cB", n, unit)
+	if nn < 10 {
+		f = "%.1f"
+	}
+	return fmt.Sprintf("%s%cB", fmt.Sprintf(f, nn), unit)
+}
+
+var duration = map[time.Duration]string{
+	time.Nanosecond:  "ns",
+	time.Microsecond: "µs",
+	time.Millisecond: "ms",
+	time.Second:      "s",
+}
+
+type progressWriter struct {
+	TotalBytes       int64
+	bytesWritten     int64
+	lastBytesWritten int64
+}
+
+func (w *progressWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+	w.bytesWritten += int64(n)
+	return
+}
+
+func (w *progressWriter) Progress(done chan struct{}, d time.Duration) {
+	stop := false
+	for {
+		select {
+		case <-done:
+			stop = true
+		default:
+			w.printProgress(d)
+			w.lastBytesWritten = w.bytesWritten
+		}
+		if stop {
+			w.printProgress(d)
+			printfStderr("\n")
+			break
+		}
+		time.Sleep(d)
+	}
+}
+
+func (w *progressWriter) printProgress(d time.Duration) {
+	printfStderr("\033[2K\r%s", formatSize(w.bytesWritten))
+	if w.TotalBytes != 0 {
+		printfStderr("/%s(%.f%%)", formatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
+	}
+	printfStderr(" | %s/%s", formatSize(w.bytesWritten-w.lastBytesWritten), duration[d])
 }
 
 var errDry = errors.New("dry run")
@@ -220,8 +276,20 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 	return nil
 }
 
-func enc(in, out, s *os.File, pass []byte) (err error) {
-	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
+const progressEvery = time.Second
+
+func enc(in, out, s *os.File, inSize int64, pass []byte) (err error) {
+	done := make(chan struct{})
+	var pin io.Reader = in
+	if fFancy {
+		p := &progressWriter{TotalBytes: inSize}
+		pin = io.TeeReader(in, p)
+		go p.Progress(done, progressEvery)
+	}
+	sign, err := geheim.Encrypt(pin, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
+	if fFancy {
+		done <- struct{}{}
+	}
 	if fVerbose {
 		if sign != nil {
 			printfStderr("%-8s%x\n", "SIGN", sign)
@@ -236,18 +304,28 @@ func enc(in, out, s *os.File, pass []byte) (err error) {
 	return
 }
 
-func dec(in, out, s *os.File, pass []byte) (err error) {
-	var eSign []byte
+func dec(in, out, s *os.File, inSize int64, pass []byte) (err error) {
+	var esign []byte
 	if s != nil {
-		eSign, err = io.ReadAll(s)
+		esign, err = io.ReadAll(s)
 		if err != nil {
 			return
 		}
 	}
-	sign, err := geheim.DecryptVerify(in, out, pass, dbg, eSign)
+	done := make(chan struct{})
+	var pin io.Reader = in
+	if fFancy {
+		p := &progressWriter{TotalBytes: inSize}
+		pin = io.TeeReader(in, p)
+		go p.Progress(done, progressEvery)
+	}
+	sign, err := geheim.DecryptVerify(pin, out, pass, dbg, esign)
+	if fFancy {
+		done <- struct{}{}
+	}
 	if fVerbose {
-		if eSign != nil {
-			printfStderr("%-8s%x\n", "ESIGN", eSign)
+		if esign != nil {
+			printfStderr("%-8s%x\n", "ESIGN", esign)
 		}
 		if sign != nil {
 			printfStderr("%-8s%x\n", "SIGN", sign)
@@ -268,6 +346,7 @@ func main() {
 	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing file")
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
+	flag.BoolVar(&fFancy, "F", false, "fancy")
 	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.BoolVar(&fDry, "j", false, "dry run")
 	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
@@ -321,7 +400,7 @@ func main() {
 			return
 		}
 	}
-	in, out, sign, err := getIO(inSet, outSet, signSet)
+	in, out, sign, inSize, err := getIO(inSet, outSet, signSet)
 	if checkErr(err) {
 		return
 	}
@@ -337,9 +416,9 @@ func main() {
 		return
 	}
 	if fDecrypt {
-		err = dec(in, out, sign, pass)
+		err = dec(in, out, sign, inSize, pass)
 	} else {
-		err = enc(in, out, sign, pass)
+		err = enc(in, out, sign, inSize, pass)
 	}
 	checkErr(err)
 }
