@@ -43,7 +43,7 @@ const (
 	MaxSec = 20
 )
 
-func GetSecIterMemory(sec int) (iter int, memory int) {
+func GetSecIterMemory(sec int) (iter int, memory int64) {
 	iter = 1e6 * sec
 	memory = 1 << (20 + sec)
 	return
@@ -68,7 +68,7 @@ func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size 
 		return argon2.IDKey(pass, salt, 1, uint32(memory/1024), uint8(runtime.NumCPU()), uint32(size)), Argon2, nil
 	case Scrypt:
 		const r, p = 8, 1
-		N := memory / 128 / r / p
+		N := int(memory / 128 / r / p)
 		key, err := scrypt.Key(pass, salt, N, r, p, size)
 		return key, Scrypt, err
 	}

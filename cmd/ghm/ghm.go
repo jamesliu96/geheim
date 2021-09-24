@@ -163,11 +163,14 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, err error) {
 	return
 }
 
-func formatSize(n int) string {
+func formatSize(n int64) string {
 	var unit byte
 	switch {
+	case n >= 1<<60:
+		n /= 1 << 60
+		unit = 'E'
 	case n >= 1<<50:
-		n /= 1 << 40
+		n /= 1 << 50
 		unit = 'P'
 	case n >= 1<<40:
 		n /= 1 << 40
@@ -204,7 +207,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 			printfStderr("%-8s%d(%d)\n", "SEC", sec, iter)
 		}
 		if kdf == geheim.Argon2 || kdf == geheim.Scrypt {
-			printfStderr("%-8s%d(%s)\n", "SEC", sec, formatSize(memory))
+			printfStderr("%-8s%d(%s)\n", "SEC", sec, formatSize(int64(memory)))
 		}
 		printfStderr("%-8s%s\n", "PASS", pass)
 		printfStderr("%-8s%x\n", "SALT", salt)
@@ -217,7 +220,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 	return nil
 }
 
-func enc(in, out, signOut *os.File, pass []byte) (err error) {
+func enc(in, out, s *os.File, pass []byte) (err error) {
 	sign, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	if fVerbose {
 		if sign != nil {
@@ -227,16 +230,16 @@ func enc(in, out, signOut *os.File, pass []byte) (err error) {
 	if err != nil {
 		return
 	}
-	if signOut != nil {
-		_, err = signOut.Write(sign)
+	if s != nil {
+		_, err = s.Write(sign)
 	}
 	return
 }
 
-func dec(in, out, signIn *os.File, pass []byte) (err error) {
+func dec(in, out, s *os.File, pass []byte) (err error) {
 	var eSign []byte
-	if signIn != nil {
-		eSign, err = io.ReadAll(signIn)
+	if s != nil {
+		eSign, err = io.ReadAll(s)
 		if err != nil {
 			return
 		}
