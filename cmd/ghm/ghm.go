@@ -198,17 +198,15 @@ func formatSize(n int64) string {
 	return fmt.Sprintf("%s%cB", fmt.Sprintf(f, nn), unit)
 }
 
-var duration = map[time.Duration]string{
-	time.Nanosecond:  "ns",
-	time.Microsecond: "µs",
-	time.Millisecond: "ms",
-	time.Second:      "s",
+func now() int64 {
+	return time.Now().UnixNano()
 }
 
 type progressWriter struct {
 	TotalBytes       int64
 	bytesWritten     int64
 	lastBytesWritten int64
+	lastTimeWritten  int64
 }
 
 func (w *progressWriter) Write(p []byte) (n int, err error) {
@@ -220,28 +218,32 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 func (w *progressWriter) Progress(done chan struct{}, d time.Duration) {
 	stop := false
 	for {
+		n := now()
 		select {
 		case <-done:
 			stop = true
 		default:
-			w.printProgress(d)
+			w.printProgress(false)
 			w.lastBytesWritten = w.bytesWritten
+			w.lastTimeWritten = now()
 		}
 		if stop {
-			w.printProgress(d)
-			printfStderr("\n")
+			w.printProgress(true)
 			break
 		}
-		time.Sleep(d)
+		time.Sleep(d - time.Duration(now()-n))
 	}
 }
 
-func (w *progressWriter) printProgress(d time.Duration) {
+func (w *progressWriter) printProgress(last bool) {
 	printfStderr("\033[2K\r%s", formatSize(w.bytesWritten))
 	if w.TotalBytes != 0 {
 		printfStderr("/%s(%.f%%)", formatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
 	}
-	printfStderr(" | %s/%s", formatSize(w.bytesWritten-w.lastBytesWritten), duration[d])
+	printfStderr(" | %s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(now()-w.lastTimeWritten)/time.Nanosecond.Seconds())))
+	if last {
+		printfStderr("\n")
+	}
 }
 
 var errDry = errors.New("dry run")
@@ -276,7 +278,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 	return nil
 }
 
-const progressEvery = time.Second
+const progressDuration = time.Second
 
 func enc(in, out, s *os.File, inSize int64, pass []byte) (err error) {
 	done := make(chan struct{})
@@ -284,7 +286,7 @@ func enc(in, out, s *os.File, inSize int64, pass []byte) (err error) {
 	if fFancy {
 		p := &progressWriter{TotalBytes: inSize}
 		pin = io.TeeReader(in, p)
-		go p.Progress(done, progressEvery)
+		go p.Progress(done, progressDuration)
 	}
 	sign, err := geheim.Encrypt(pin, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	if fFancy {
@@ -317,7 +319,7 @@ func dec(in, out, s *os.File, inSize int64, pass []byte) (err error) {
 	if fFancy {
 		p := &progressWriter{TotalBytes: inSize}
 		pin = io.TeeReader(in, p)
-		go p.Progress(done, progressEvery)
+		go p.Progress(done, progressDuration)
 	}
 	sign, err := geheim.DecryptVerify(pin, out, pass, dbg, esign)
 	if fFancy {
