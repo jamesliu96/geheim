@@ -32,28 +32,18 @@ var (
 	fPass      string
 	fOverwrite bool
 	fVerbose   bool
-	fFancy     bool
+	fProgress  bool
 	fVersion   bool
 	fDry       bool
 	fGen       int
 )
 
-func flagsSet() (inSet, outSet, signSet, passSet bool) {
+func flagsSet() map[string]bool {
+	flags := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "i" {
-			inSet = true
-		}
-		if f.Name == "o" {
-			outSet = true
-		}
-		if f.Name == "s" {
-			signSet = true
-		}
-		if f.Name == "p" {
-			passSet = true
-		}
+		flags[f.Name] = true
 	})
-	return
+	return flags
 }
 
 func printfStderr(format string, v ...interface{}) {
@@ -215,7 +205,7 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (w *progressWriter) Progress(done chan struct{}, d time.Duration) {
+func (w *progressWriter) Progress(done <-chan struct{}, d time.Duration) {
 	stop := false
 	for {
 		n := now()
@@ -283,13 +273,13 @@ const progressDuration = time.Second
 func enc(in, out, s *os.File, inSize int64, pass []byte) (err error) {
 	done := make(chan struct{})
 	var pin io.Reader = in
-	if fFancy {
+	if fProgress {
 		p := &progressWriter{TotalBytes: inSize}
 		pin = io.TeeReader(in, p)
 		go p.Progress(done, progressDuration)
 	}
 	sign, err := geheim.Encrypt(pin, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
-	if fFancy {
+	if fProgress {
 		done <- struct{}{}
 	}
 	if fVerbose {
@@ -316,13 +306,13 @@ func dec(in, out, s *os.File, inSize int64, pass []byte) (err error) {
 	}
 	done := make(chan struct{})
 	var pin io.Reader = in
-	if fFancy {
+	if fProgress {
 		p := &progressWriter{TotalBytes: inSize}
 		pin = io.TeeReader(in, p)
 		go p.Progress(done, progressDuration)
 	}
 	sign, err := geheim.DecryptVerify(pin, out, pass, dbg, esign)
-	if fFancy {
+	if fProgress {
 		done <- struct{}{}
 	}
 	if fVerbose {
@@ -343,32 +333,32 @@ func main() {
 	}
 	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
 	flag.StringVar(&fOut, "o", "", "output `path` (default `stdout`)")
-	flag.StringVar(&fSign, "s", "", "signature `path` (bypass if omitted)")
-	flag.StringVar(&fPass, "p", "", "`passphrase` (must be specified if `stdin` is used as input)")
-	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing file")
+	flag.StringVar(&fSign, "s", "", "signature `path`")
+	flag.StringVar(&fPass, "p", "", "`passphrase`")
+	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing destination")
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
-	flag.BoolVar(&fFancy, "F", false, "fancy")
+	flag.BoolVar(&fProgress, "P", false, "show progress")
 	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.BoolVar(&fDry, "j", false, "dry run")
 	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 	flag.IntVar(&fCipher, "c", int(geheim.DefaultCipher),
-		fmt.Sprintf("[encrypt] %s (%s)", geheim.CipherDesc, geheim.GetCipherString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.CipherDesc, geheim.GetCipherString()),
 	)
 	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
-		fmt.Sprintf("[encrypt] %s (%s)", geheim.ModeDesc, geheim.GetModeString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.ModeDesc, geheim.GetModeString()),
 	)
 	flag.IntVar(&fKDF, "k", int(geheim.DefaultKDF),
-		fmt.Sprintf("[encrypt] %s (%s)", geheim.KDFDesc, geheim.GetKDFString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.KDFDesc, geheim.GetKDFString()),
 	)
 	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
-		fmt.Sprintf("[encrypt] %s (%s)", geheim.MACDesc, geheim.GetMACString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.MACDesc, geheim.GetMACString()),
 	)
 	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
-		fmt.Sprintf("[encrypt] %s (%s)", geheim.MDDesc, geheim.GetMDString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.MDDesc, geheim.GetMDString()),
 	)
 	flag.IntVar(&fSL, "e", geheim.DefaultSec,
-		fmt.Sprintf("[encrypt] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
+		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
 	)
 	if len(os.Args) <= 1 {
 		flag.Usage()
@@ -383,7 +373,8 @@ func main() {
 		printfStderr("%s %s (%s)\n", app, gitTag, gitRev)
 		return
 	}
-	if fGen > 0 {
+	flags := flagsSet()
+	if flags["G"] && fGen > 0 {
 		if s, err := geheim.RandASCIIString(fGen); checkErr(err) {
 			return
 		} else {
@@ -396,13 +387,7 @@ func main() {
 			return
 		}
 	}
-	inSet, outSet, signSet, passSet := flagsSet()
-	if !passSet && !inSet {
-		if checkErr(errors.New("passphrase must be specified if `stdin` is used as input")) {
-			return
-		}
-	}
-	in, out, sign, inSize, err := getIO(inSet, outSet, signSet)
+	in, out, sign, inSize, err := getIO(flags["i"], flags["o"], flags["s"])
 	if checkErr(err) {
 		return
 	}
@@ -413,7 +398,7 @@ func main() {
 		}
 		checkErr(errs...)
 	})()
-	pass, err := getPass(passSet)
+	pass, err := getPass(flags["p"])
 	if checkErr(err) {
 		return
 	}
