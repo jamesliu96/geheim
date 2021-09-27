@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"hash"
-	"runtime"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -44,7 +43,7 @@ const (
 )
 
 func GetSecIterMemory(sec int) (iter int, memory int64) {
-	iter = 1e6 * sec
+	iter = 1000000 * sec
 	memory = 1 << (20 + sec)
 	return
 }
@@ -65,7 +64,8 @@ func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size 
 	case PBKDF2:
 		return pbkdf2.Key(pass, salt, iter, size, mdfn), PBKDF2, nil
 	case Argon2:
-		return argon2.IDKey(pass, salt, 1, uint32(memory/1024), uint8(runtime.NumCPU()), uint32(size)), Argon2, nil
+		const threads = 128
+		return argon2.IDKey(pass, salt, 1, uint32(memory/1024), threads, uint32(size)), Argon2, nil
 	case Scrypt:
 		const r, p = 8, 1
 		N := int(memory / 128 / r / p)
