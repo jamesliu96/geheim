@@ -188,15 +188,11 @@ func formatSize(n int64) string {
 	return fmt.Sprintf("%s%cB", fmt.Sprintf(f, nn), unit)
 }
 
-func now() int64 {
-	return time.Now().UnixNano()
-}
-
 type progressWriter struct {
 	TotalBytes       int64
 	bytesWritten     int64
 	lastBytesWritten int64
-	lastTimeWritten  int64
+	lastTime         time.Time
 }
 
 func (w *progressWriter) Write(p []byte) (n int, err error) {
@@ -208,20 +204,20 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 func (w *progressWriter) Progress(done <-chan struct{}, d time.Duration) {
 	stop := false
 	for {
-		n := now()
+		n := time.Now()
 		select {
 		case <-done:
 			stop = true
 		default:
 			w.printProgress(false)
 			w.lastBytesWritten = w.bytesWritten
-			w.lastTimeWritten = now()
+			w.lastTime = time.Now()
 		}
 		if stop {
 			w.printProgress(true)
 			break
 		}
-		time.Sleep(d - time.Duration(now()-n))
+		time.Sleep(d - time.Since(n))
 	}
 }
 
@@ -230,7 +226,7 @@ func (w *progressWriter) printProgress(last bool) {
 	if w.TotalBytes != 0 {
 		printfStderr("/%s(%.f%%)", formatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
 	}
-	printfStderr(" | %s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(now()-w.lastTimeWritten)/time.Nanosecond.Seconds())))
+	printfStderr(" | %s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
 	if last {
 		printfStderr("\n")
 	}

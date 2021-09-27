@@ -43,7 +43,7 @@ const (
 )
 
 func GetSecIterMemory(sec int) (iter int, memory int64) {
-	iter = 1000000 * sec
+	iter = 1e6 * sec
 	memory = 1 << (20 + sec)
 	return
 }
