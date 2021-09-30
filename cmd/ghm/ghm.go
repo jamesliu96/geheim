@@ -81,18 +81,18 @@ func getPass(passSet bool) ([]byte, error) {
 		return []byte(fPass), nil
 	}
 	var pass []byte
-	err := readPass(&pass, "enter passphrase: ")
+	err := readPass(&pass, "enter passcode: ")
 	if err != nil {
 		return nil, err
 	}
 	if !fDecrypt {
 		var vpass []byte
-		err := readPass(&vpass, "verify passphrase: ")
+		err := readPass(&vpass, "verify passcode: ")
 		if err != nil {
 			return nil, err
 		}
 		if !bytes.Equal(pass, vpass) {
-			return nil, errors.New("passphrase verification failed")
+			return nil, errors.New("passcode verification failed")
 		}
 	}
 	return pass, nil
@@ -307,7 +307,7 @@ func dec(in, out, s *os.File, inSize int64, pass []byte) (err error) {
 		pin = io.TeeReader(in, p)
 		go p.Progress(done, progressDuration)
 	}
-	sign, err := geheim.DecryptVerify(pin, out, pass, dbg, esign)
+	sign, err := geheim.DecryptVerify(pin, out, pass, esign, dbg)
 	if fProgress {
 		done <- struct{}{}
 	}
@@ -330,7 +330,7 @@ func main() {
 	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
 	flag.StringVar(&fOut, "o", "", "output `path` (default `stdout`)")
 	flag.StringVar(&fSign, "s", "", "signature `path`")
-	flag.StringVar(&fPass, "p", "", "`passphrase`")
+	flag.StringVar(&fPass, "p", "", "`passcode`")
 	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing destination")
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
