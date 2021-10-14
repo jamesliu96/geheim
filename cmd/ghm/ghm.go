@@ -161,7 +161,7 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inSize int64, e
 func formatSize(n int64) string {
 	var unit byte
 	nn := float64(n)
-	f := "%.f"
+	f := "%.2f"
 	switch {
 	case n >= 1<<60:
 		nn /= 1 << 60
@@ -181,9 +181,8 @@ func formatSize(n int64) string {
 	case n >= 1<<10:
 		nn /= 1 << 10
 		unit = 'K'
-	}
-	if nn < 10 {
-		f = "%.1f"
+	default:
+		f = "%.f"
 	}
 	return fmt.Sprintf("%s%cB", fmt.Sprintf(f, nn), unit)
 }
