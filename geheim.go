@@ -27,10 +27,6 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 			err = w.Flush()
 		}
 	})()
-	err = ValidateConfig(cipher, mode, kdf, mac, md, sec)
-	if err != nil {
-		return
-	}
 	salt := make([]byte, saltSize)
 	err = randRead(salt)
 	if err != nil {
