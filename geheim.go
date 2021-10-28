@@ -15,7 +15,7 @@ const (
 	DefaultSec    = 10
 )
 
-func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (signed []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
@@ -72,11 +72,11 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
-	sign = h.Sum(nil)
+	signed = h.Sum(nil)
 	return
 }
 
-func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign []byte, err error) {
+func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signed []byte, err error) {
 	err = checkArgs(in, out, pass)
 	if err != nil {
 		return
@@ -127,17 +127,17 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (sign 
 	if err != nil {
 		return
 	}
-	sign = h.Sum(nil)
+	signed = h.Sum(nil)
 	return
 }
 
-func DecryptVerify(in io.Reader, out io.Writer, pass []byte, esign []byte, printFn PrintFunc) (sign []byte, err error) {
-	sign, err = Decrypt(in, out, pass, printFn)
+func DecryptVerify(in io.Reader, out io.Writer, pass []byte, signex []byte, printFn PrintFunc) (signed []byte, err error) {
+	signed, err = Decrypt(in, out, pass, printFn)
 	if err != nil {
 		return
 	}
-	if sign != nil {
-		if !equal(esign, sign) {
+	if signed != nil {
+		if !equal(signex, signed) {
 			err = errors.New("signature verification failed")
 		}
 	}

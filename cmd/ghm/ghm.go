@@ -98,7 +98,7 @@ func getPass(passSet bool) ([]byte, error) {
 	return pass, nil
 }
 
-func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inSize int64, err error) {
+func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inBytes int64, err error) {
 	if inSet {
 		in, err = os.Open(fIn)
 		if err != nil {
@@ -108,7 +108,7 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inSize int64, e
 			err = e
 			return
 		} else {
-			inSize = fi.Size()
+			inBytes = fi.Size()
 			if fi.IsDir() {
 				err = fmt.Errorf("input file `%s` is a directory", fIn)
 				return
@@ -125,8 +125,15 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inSize int64, e
 			}
 		}
 		out, err = os.Create(fOut)
+		if err != nil {
+			return
+		}
 	} else {
 		out = os.Stdout
+	}
+	if fVerbose {
+		printfStderr("%-8s%s\n", "INPUT", in.Name())
+		printfStderr("%-8s%s\n", "OUTPUT", out.Name())
 	}
 	if signSet {
 		if fDecrypt {
@@ -149,11 +156,13 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inSize int64, e
 				}
 			}
 			sign, err = os.Create(fSign)
+			if err != nil {
+				return
+			}
 		}
-	}
-	if fVerbose {
-		printfStderr("%-8s%s\n", "INPUT", in.Name())
-		printfStderr("%-8s%s\n", "OUTPUT", out.Name())
+		if fVerbose {
+			printfStderr("%-8s%s\n", "SIGN", sign.Name())
+		}
 	}
 	return
 }
@@ -265,58 +274,57 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 
 const progressDuration = time.Second
 
-func enc(in, out, s *os.File, inSize int64, pass []byte) (err error) {
+func enc(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
+	var wrapIn io.Reader = in
 	done := make(chan struct{})
-	var pin io.Reader = in
 	if fProgress {
-		p := &progressWriter{TotalBytes: inSize}
-		pin = io.TeeReader(in, p)
+		p := &progressWriter{TotalBytes: inBytes}
+		wrapIn = io.TeeReader(in, p)
 		go p.Progress(done, progressDuration)
 	}
-	sign, err := geheim.Encrypt(pin, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
+	signed, err := geheim.Encrypt(wrapIn, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	if fProgress {
 		done <- struct{}{}
-	}
-	if fVerbose {
-		if sign != nil {
-			printfStderr("%-8s%x\n", "SIGN", sign)
-		}
 	}
 	if err != nil {
 		return
 	}
-	if s != nil {
-		_, err = s.Write(sign)
+	if fVerbose {
+		printfStderr("%-8s%x\n", "SIGNED", signed)
+	}
+	if sign != nil {
+		_, err = sign.Write(signed)
 	}
 	return
 }
 
-func dec(in, out, s *os.File, inSize int64, pass []byte) (err error) {
-	var esign []byte
-	if s != nil {
-		esign, err = io.ReadAll(s)
+func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
+	var signex []byte
+	if sign != nil {
+		signex, err = io.ReadAll(sign)
 		if err != nil {
 			return
 		}
+		if fVerbose {
+			printfStderr("%-8s%x\n", "SIGNEX", signex)
+		}
 	}
+	var wrapIn io.Reader = in
 	done := make(chan struct{})
-	var pin io.Reader = in
 	if fProgress {
-		p := &progressWriter{TotalBytes: inSize}
-		pin = io.TeeReader(in, p)
+		p := &progressWriter{TotalBytes: inBytes}
+		wrapIn = io.TeeReader(wrapIn, p)
 		go p.Progress(done, progressDuration)
 	}
-	sign, err := geheim.DecryptVerify(pin, out, pass, esign, dbg)
+	signed, err := geheim.DecryptVerify(wrapIn, out, pass, signex, dbg)
 	if fProgress {
 		done <- struct{}{}
 	}
+	if err != nil {
+		return
+	}
 	if fVerbose {
-		if esign != nil {
-			printfStderr("%-8s%x\n", "ESIGN", esign)
-		}
-		if sign != nil {
-			printfStderr("%-8s%x\n", "SIGN", sign)
-		}
+		printfStderr("%-8s%x\n", "SIGNED", signed)
 	}
 	return
 }
@@ -382,7 +390,7 @@ func main() {
 			return
 		}
 	}
-	in, out, sign, inSize, err := getIO(flags["i"], flags["o"], flags["s"])
+	in, out, sign, inBytes, err := getIO(flags["i"], flags["o"], flags["s"])
 	if checkErr(err) {
 		return
 	}
@@ -398,9 +406,9 @@ func main() {
 		return
 	}
 	if fDecrypt {
-		err = dec(in, out, sign, inSize, pass)
+		err = dec(in, out, sign, inBytes, pass)
 	} else {
-		err = enc(in, out, sign, inSize, pass)
+		err = enc(in, out, sign, inBytes, pass)
 	}
 	checkErr(err)
 }
