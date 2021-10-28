@@ -131,14 +131,16 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signe
 	return
 }
 
+var ErrSigVer = errors.New("signature verification failed")
+
 func DecryptVerify(in io.Reader, out io.Writer, pass []byte, signex []byte, printFn PrintFunc) (signed []byte, err error) {
 	signed, err = Decrypt(in, out, pass, printFn)
 	if err != nil {
 		return
 	}
-	if signed != nil {
+	if signex != nil {
 		if !equal(signex, signed) {
-			err = errors.New("signature verification failed")
+			err = ErrSigVer
 		}
 	}
 	return

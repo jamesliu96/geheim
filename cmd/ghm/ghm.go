@@ -320,7 +320,7 @@ func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 	if fProgress {
 		done <- struct{}{}
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
 	}
 	if fVerbose {
