@@ -217,24 +217,28 @@ func (w *progressWriter) Progress(done <-chan struct{}, d time.Duration) {
 		case <-done:
 			stop = true
 		default:
-			w.printProgress(false)
+			w.print(false)
 			w.lastBytesWritten = w.bytesWritten
 			w.lastTime = time.Now()
 		}
 		if stop {
-			w.printProgress(true)
+			w.print(true)
 			break
 		}
 		time.Sleep(d - time.Since(n))
 	}
 }
 
-func (w *progressWriter) printProgress(last bool) {
-	printfStderr("\033[2K\r%s", formatSize(w.bytesWritten))
+func (w *progressWriter) print(last bool) {
+	totalPerc := ""
 	if w.TotalBytes != 0 {
-		printfStderr("/%s(%.f%%)", formatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
+		totalPerc = fmt.Sprintf("/%s (%.f%%)", formatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
 	}
-	printfStderr(" | %s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
+	left := fmt.Sprintf("%s%s", formatSize(w.bytesWritten), totalPerc)
+	right := fmt.Sprintf("%s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
+	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
+	f := fmt.Sprintf("\r%%-%ds%%s", width-len(right))
+	printfStderr(f, left, right)
 	if last {
 		printfStderr("\n")
 	}
@@ -313,7 +317,7 @@ func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 	done := make(chan struct{})
 	if fProgress {
 		p := &progressWriter{TotalBytes: inBytes}
-		wrapIn = io.TeeReader(wrapIn, p)
+		wrapIn = io.TeeReader(in, p)
 		go p.Progress(done, progressDuration)
 	}
 	signed, err := geheim.DecryptVerify(wrapIn, out, pass, signex, dbg)
