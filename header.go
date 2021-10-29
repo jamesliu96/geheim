@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 )
 
 type header interface {
@@ -109,7 +110,7 @@ func (v *headerV5) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec
 	mac = MAC(v.MAC)
 	md = MD(v.MD)
 	sec = int(v.Sec)
-	salt = v.Salt[:min(int(v.SaltSize), len(v.Salt))]
-	iv = v.IV[:min(int(v.IVSize), len(v.IV))]
+	salt = v.Salt[:int(math.Min(float64((v.SaltSize)), float64(len(v.Salt))))]
+	iv = v.IV[:int(math.Min(float64((v.IVSize)), float64(len(v.IV))))]
 	return
 }

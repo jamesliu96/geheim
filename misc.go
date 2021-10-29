@@ -86,10 +86,3 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) 
 func equal(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"time"
 
@@ -193,7 +194,7 @@ func formatSize(n int64) string {
 	default:
 		f = "%.f"
 	}
-	return fmt.Sprintf("%s%cB", fmt.Sprintf(f, nn), unit)
+	return fmt.Sprintf("%s%cB", fmt.Sprintf(f, math.Max(0, nn)), unit)
 }
 
 type progressWriter struct {
@@ -278,18 +279,28 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 
 const progressDuration = time.Second
 
-func enc(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
-	var wrapIn io.Reader = in
-	done := make(chan struct{})
-	if fProgress {
-		p := &progressWriter{TotalBytes: inBytes}
-		wrapIn = io.TeeReader(in, p)
-		go p.Progress(done, progressDuration)
+func wrapProgress(r io.Reader, total int64, progress bool) (wrapped io.Reader, done chan<- struct{}) {
+	wrapped = r
+	d := make(chan struct{})
+	if progress {
+		p := &progressWriter{TotalBytes: total}
+		go p.Progress(d, progressDuration)
+		wrapped = io.TeeReader(r, p)
+		done = d
 	}
-	signed, err := geheim.Encrypt(wrapIn, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
-	if fProgress {
+	return
+}
+
+func doneProgress(done chan<- struct{}) {
+	if done != nil {
 		done <- struct{}{}
 	}
+}
+
+func enc(in io.Reader, out io.Writer, sign io.Writer, inBytes int64, pass []byte) (err error) {
+	in, done := wrapProgress(in, inBytes, fProgress)
+	signed, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
+	doneProgress(done)
 	if err != nil {
 		return
 	}
@@ -302,7 +313,7 @@ func enc(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 	return
 }
 
-func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
+func dec(in io.Reader, out io.Writer, sign io.Reader, inBytes int64, pass []byte) (err error) {
 	var signex []byte
 	if sign != nil {
 		signex, err = io.ReadAll(sign)
@@ -313,17 +324,9 @@ func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 			printfStderr("%-8s%x\n", "SIGNEX", signex)
 		}
 	}
-	var wrapIn io.Reader = in
-	done := make(chan struct{})
-	if fProgress {
-		p := &progressWriter{TotalBytes: inBytes}
-		wrapIn = io.TeeReader(in, p)
-		go p.Progress(done, progressDuration)
-	}
-	signed, err := geheim.DecryptVerify(wrapIn, out, pass, signex, dbg)
-	if fProgress {
-		done <- struct{}{}
-	}
+	in, done := wrapProgress(in, inBytes, fProgress)
+	signed, err := geheim.DecryptVerify(in, out, pass, signex, dbg)
+	doneProgress(done)
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
 	}
