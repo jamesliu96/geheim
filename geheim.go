@@ -49,7 +49,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	}
 	h, mac := getMAC(mac, mdfn, dk)
 	meta := newMeta()
-	header, err := meta.GetHeader()
+	header, err := meta.Header()
 	if err != nil {
 		return
 	}
@@ -93,7 +93,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signe
 	if err != nil {
 		return
 	}
-	header, err := meta.GetHeader()
+	header, err := meta.Header()
 	if err != nil {
 		return
 	}

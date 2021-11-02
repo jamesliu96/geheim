@@ -28,14 +28,12 @@ const (
 
 const version = headerVer5
 
-var headerByteOrder binary.ByteOrder = binary.BigEndian
-
 func readHeader(r io.Reader, v interface{}) error {
-	return binary.Read(r, headerByteOrder, v)
+	return binary.Read(r, binary.BigEndian, v)
 }
 
 func writeHeader(w io.Writer, v interface{}) error {
-	return binary.Write(w, headerByteOrder, v)
+	return binary.Write(w, binary.BigEndian, v)
 }
 
 func getHeader(ver uint32) (header, error) {
@@ -66,7 +64,7 @@ func (m *meta) Write(w io.Writer) error {
 	return writeHeader(w, m)
 }
 
-func (m *meta) GetHeader() (header, error) {
+func (m *meta) Header() (header, error) {
 	return getHeader(m.Version)
 }
 

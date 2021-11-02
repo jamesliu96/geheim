@@ -297,9 +297,9 @@ func doneProgress(done chan<- struct{}) {
 	}
 }
 
-func enc(in io.Reader, out io.Writer, sign io.Writer, inBytes int64, pass []byte) (err error) {
-	in, done := wrapProgress(in, inBytes, fProgress)
-	signed, err := geheim.Encrypt(in, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
+func enc(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
+	wrapin, done := wrapProgress(in, inBytes, fProgress)
+	signed, err := geheim.Encrypt(wrapin, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	doneProgress(done)
 	if err != nil {
 		return
@@ -313,7 +313,7 @@ func enc(in io.Reader, out io.Writer, sign io.Writer, inBytes int64, pass []byte
 	return
 }
 
-func dec(in io.Reader, out io.Writer, sign io.Reader, inBytes int64, pass []byte) (err error) {
+func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 	var signex []byte
 	if sign != nil {
 		signex, err = io.ReadAll(sign)
@@ -324,8 +324,8 @@ func dec(in io.Reader, out io.Writer, sign io.Reader, inBytes int64, pass []byte
 			printfStderr("%-8s%x\n", "SIGNEX", signex)
 		}
 	}
-	in, done := wrapProgress(in, inBytes, fProgress)
-	signed, err := geheim.DecryptVerify(in, out, pass, signex, dbg)
+	wrapin, done := wrapProgress(in, inBytes, fProgress)
+	signed, err := geheim.DecryptVerify(wrapin, out, pass, signex, dbg)
 	doneProgress(done)
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
