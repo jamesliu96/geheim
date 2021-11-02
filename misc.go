@@ -2,7 +2,6 @@ package geheim
 
 import (
 	"crypto/subtle"
-	"errors"
 	"fmt"
 )
 
@@ -16,15 +15,6 @@ const (
 )
 
 type PrintFunc func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, key []byte) error
-
-func checkArgs(args ...interface{}) error {
-	for _, arg := range args {
-		if arg == nil {
-			return errors.New("invalid argument")
-		}
-	}
-	return nil
-}
 
 func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) (err error) {
 	err = fmt.Errorf("invalid %s (%s)", CipherDesc, GetCipherString())

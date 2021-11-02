@@ -109,11 +109,11 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inBytes int64, 
 			err = e
 			return
 		} else {
-			inBytes = fi.Size()
 			if fi.IsDir() {
 				err = fmt.Errorf("input file `%s` is a directory", fIn)
 				return
 			}
+			inBytes = fi.Size()
 		}
 	} else {
 		in = os.Stdin
@@ -298,8 +298,8 @@ func doneProgress(done chan<- struct{}) {
 }
 
 func enc(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
-	wrapin, done := wrapProgress(in, inBytes, fProgress)
-	signed, err := geheim.Encrypt(wrapin, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
+	wrapped, done := wrapProgress(in, inBytes, fProgress)
+	signed, err := geheim.Encrypt(wrapped, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	doneProgress(done)
 	if err != nil {
 		return
@@ -324,8 +324,8 @@ func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 			printfStderr("%-8s%x\n", "SIGNEX", signex)
 		}
 	}
-	wrapin, done := wrapProgress(in, inBytes, fProgress)
-	signed, err := geheim.DecryptVerify(wrapin, out, pass, signex, dbg)
+	wrapped, done := wrapProgress(in, inBytes, fProgress)
+	signed, err := geheim.DecryptVerify(wrapped, out, pass, signex, dbg)
 	doneProgress(done)
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
