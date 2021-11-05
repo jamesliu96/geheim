@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/jamesliu96/geheim"
@@ -47,18 +48,18 @@ func flagsSet() map[string]bool {
 	return flags
 }
 
-func printfStderr(format string, v ...interface{}) {
+func printf(format string, v ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, v...)
 }
 
-func checkErr(errs ...error) (gotErr bool) {
+func check(errs ...error) (goterr bool) {
 	for _, err := range errs {
 		if err != nil && !errors.Is(err, errDry) {
-			printfStderr("error: %s\n", err)
-			gotErr = true
+			printf("error: %s\n", err)
+			goterr = true
 		}
 	}
-	if gotErr {
+	if goterr {
 		os.Exit(1)
 	}
 	return
@@ -66,9 +67,9 @@ func checkErr(errs ...error) (gotErr bool) {
 
 func readPass(p *[]byte, question string) error {
 	for len(*p) == 0 {
-		printfStderr(question)
+		printf(question)
 		password, err := term.ReadPassword(int(os.Stdin.Fd()))
-		printfStderr("\n")
+		printf("\n")
 		if err != nil {
 			return err
 		}
@@ -77,8 +78,8 @@ func readPass(p *[]byte, question string) error {
 	return nil
 }
 
-func getPass(passSet bool) ([]byte, error) {
-	if passSet {
+func getPass(passset bool) ([]byte, error) {
+	if passset {
 		return []byte(fPass), nil
 	}
 	var pass []byte
@@ -99,8 +100,8 @@ func getPass(passSet bool) ([]byte, error) {
 	return pass, nil
 }
 
-func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inBytes int64, err error) {
-	if inSet {
+func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, err error) {
+	if inset {
 		in, err = os.Open(fIn)
 		if err != nil {
 			return
@@ -113,12 +114,12 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inBytes int64, 
 				err = fmt.Errorf("input file `%s` is a directory", fIn)
 				return
 			}
-			inBytes = fi.Size()
+			inbytes = fi.Size()
 		}
 	} else {
 		in = os.Stdin
 	}
-	if outSet {
+	if outset {
 		if !fOverwrite {
 			if _, e := os.Stat(fOut); e == nil {
 				err = fmt.Errorf("output file `%s` exists, use -f to overwrite", fOut)
@@ -133,10 +134,10 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inBytes int64, 
 		out = os.Stdout
 	}
 	if fVerbose {
-		printfStderr("%-8s%s\n", "INPUT", in.Name())
-		printfStderr("%-8s%s\n", "OUTPUT", out.Name())
+		printf("%-8s%s\n", "INPUT", in.Name())
+		printf("%-8s%s\n", "OUTPUT", out.Name())
 	}
-	if signSet {
+	if signset {
 		if fDecrypt {
 			sign, err = os.Open(fSign)
 			if err != nil {
@@ -162,7 +163,7 @@ func getIO(inSet, outSet, signSet bool) (in, out, sign *os.File, inBytes int64, 
 			}
 		}
 		if fVerbose {
-			printfStderr("%-8s%s\n", "SIGN", sign.Name())
+			printf("%-8s%s\n", "SIGN", sign.Name())
 		}
 	}
 	return
@@ -239,9 +240,9 @@ func (w *progressWriter) print(last bool) {
 	right := fmt.Sprintf("%s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
 	f := fmt.Sprintf("\r%%-%ds%%s", width-len(right))
-	printfStderr(f, left, right)
+	printf(f, left, right)
 	if last {
-		printfStderr("\n")
+		printf("\n")
 	}
 }
 
@@ -249,27 +250,27 @@ var errDry = errors.New("dry run")
 
 var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
 	if fVerbose {
-		printfStderr("%-8s%d\n", "VERSION", version)
-		printfStderr("%-8s%s(%d)\n", "CIPHER", geheim.CipherNames[cipher], cipher)
+		printf("%-8s%d\n", "VERSION", version)
+		printf("%-8s%s(%d)\n", "CIPHER", geheim.CipherNames[cipher], cipher)
 		if cipher == geheim.AES {
-			printfStderr("%-8s%s(%d)\n", "MODE", geheim.ModeNames[mode], mode)
+			printf("%-8s%s(%d)\n", "MODE", geheim.ModeNames[mode], mode)
 		}
-		printfStderr("%-8s%s(%d)\n", "KDF", geheim.KDFNames[kdf], kdf)
-		printfStderr("%-8s%s(%d)\n", "MAC", geheim.MACNames[mac], mac)
+		printf("%-8s%s(%d)\n", "KDF", geheim.KDFNames[kdf], kdf)
+		printf("%-8s%s(%d)\n", "MAC", geheim.MACNames[mac], mac)
 		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
-			printfStderr("%-8s%s(%d)\n", "MD", geheim.MDNames[md], md)
+			printf("%-8s%s(%d)\n", "MD", geheim.MDNames[md], md)
 		}
 		iter, memory := geheim.GetSecIterMemory(sec)
 		if kdf == geheim.PBKDF2 {
-			printfStderr("%-8s%d(%d)\n", "SEC", sec, iter)
+			printf("%-8s%d(%d)\n", "SEC", sec, iter)
 		}
 		if kdf == geheim.Argon2 || kdf == geheim.Scrypt {
-			printfStderr("%-8s%d(%s)\n", "SEC", sec, formatSize(int64(memory)))
+			printf("%-8s%d(%s)\n", "SEC", sec, formatSize(int64(memory)))
 		}
-		printfStderr("%-8s%s\n", "PASS", pass)
-		printfStderr("%-8s%x\n", "SALT", salt)
-		printfStderr("%-8s%x\n", "IV", iv)
-		printfStderr("%-8s%x\n", "KEY", key)
+		printf("%-8s%s\n", "PASS", pass)
+		printf("%-8s%x\n", "SALT", salt)
+		printf("%-8s%x\n", "IV", iv)
+		printf("%-8s%x\n", "KEY", key)
 	}
 	if fDry {
 		return errDry
@@ -297,15 +298,15 @@ func doneProgress(done chan<- struct{}) {
 	}
 }
 
-func enc(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
-	wrapped, done := wrapProgress(in, inBytes, fProgress)
+func enc(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
+	wrapped, done := wrapProgress(in, inbytes, fProgress)
 	signed, err := geheim.Encrypt(wrapped, out, pass, geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL, dbg)
 	doneProgress(done)
 	if err != nil {
 		return
 	}
 	if fVerbose {
-		printfStderr("%-8s%x\n", "SIGNED", signed)
+		printf("%-8s%x\n", "SIGNED", signed)
 	}
 	if sign != nil {
 		_, err = sign.Write(signed)
@@ -313,7 +314,7 @@ func enc(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 	return
 }
 
-func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
+func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 	var signex []byte
 	if sign != nil {
 		signex, err = io.ReadAll(sign)
@@ -321,24 +322,24 @@ func dec(in, out, sign *os.File, inBytes int64, pass []byte) (err error) {
 			return
 		}
 		if fVerbose {
-			printfStderr("%-8s%x\n", "SIGNEX", signex)
+			printf("%-8s%x\n", "SIGNEX", signex)
 		}
 	}
-	wrapped, done := wrapProgress(in, inBytes, fProgress)
+	wrapped, done := wrapProgress(in, inbytes, fProgress)
 	signed, err := geheim.DecryptVerify(wrapped, out, pass, signex, dbg)
 	doneProgress(done)
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
 	}
 	if fVerbose {
-		printfStderr("%-8s%x\n", "SIGNED", signed)
+		printf("%-8s%x\n", "SIGNED", signed)
 	}
 	return
 }
 
 func main() {
 	flag.Usage = func() {
-		printfStderr("usage: %s [option]...\noptions:\n", app)
+		printf("usage: %s [option]...\noptions:\n", app)
 		flag.PrintDefaults()
 	}
 	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
@@ -380,12 +381,12 @@ func main() {
 		return
 	}
 	if fVersion {
-		printfStderr("%s %s (%s)\n", app, gitTag, gitRev)
+		printf("%s [%s] %s (%s)\n", app, runtime.GOARCH, gitTag, gitRev)
 		return
 	}
 	flags := flagsSet()
 	if flags["G"] && fGen > 0 {
-		if s, err := geheim.RandASCIIString(fGen); checkErr(err) {
+		if s, err := geheim.RandASCIIString(fGen); check(err) {
 			return
 		} else {
 			fmt.Print(s)
@@ -393,12 +394,12 @@ func main() {
 		return
 	}
 	if !fDecrypt {
-		if checkErr(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL)) {
+		if check(geheim.ValidateConfig(geheim.Cipher(fCipher), geheim.Mode(fMode), geheim.KDF(fKDF), geheim.MAC(fMAC), geheim.MD(fMD), fSL)) {
 			return
 		}
 	}
-	in, out, sign, inBytes, err := getIO(flags["i"], flags["o"], flags["s"])
-	if checkErr(err) {
+	in, out, sign, inbytes, err := getIO(flags["i"], flags["o"], flags["s"])
+	if check(err) {
 		return
 	}
 	defer (func() {
@@ -406,16 +407,16 @@ func main() {
 		if sign != nil {
 			errs = append(errs, sign.Close())
 		}
-		checkErr(errs...)
+		check(errs...)
 	})()
 	pass, err := getPass(flags["p"])
-	if checkErr(err) {
+	if check(err) {
 		return
 	}
 	if fDecrypt {
-		err = dec(in, out, sign, inBytes, pass)
+		err = dec(in, out, sign, inbytes, pass)
 	} else {
-		err = enc(in, out, sign, inBytes, pass)
+		err = enc(in, out, sign, inbytes, pass)
 	}
-	checkErr(err)
+	check(err)
 }
