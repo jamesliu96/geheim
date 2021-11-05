@@ -381,7 +381,7 @@ func main() {
 		return
 	}
 	if fVersion {
-		printf("%s [%s] %s (%s)\n", app, runtime.GOARCH, gitTag, gitRev)
+		printf("%s [%s-%s] %s (%s)\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev)
 		return
 	}
 	flags := flagsSet()
