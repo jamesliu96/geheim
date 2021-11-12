@@ -8,10 +8,12 @@ import (
 	"io"
 	"math"
 	"os"
+	"reflect"
 	"runtime"
 	"time"
 
 	"github.com/jamesliu96/geheim"
+	"golang.org/x/sys/cpu"
 	"golang.org/x/term"
 )
 
@@ -167,6 +169,43 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 		}
 	}
 	return
+}
+
+func getCPUFeatures() []string {
+	d := []string{}
+	var v interface{}
+	switch runtime.GOARCH {
+	case "386":
+		fallthrough
+	case "amd64":
+		v = cpu.X86
+	case "arm":
+		v = cpu.ARM
+	case "arm64":
+		v = cpu.ARM64
+	case "mips64":
+		fallthrough
+	case "mips64le":
+		v = cpu.MIPS64X
+	case "ppc64":
+		fallthrough
+	case "ppc64le":
+		v = cpu.PPC64
+	case "s390x":
+		v = cpu.S390X
+	default:
+		return d
+	}
+	ks := reflect.TypeOf(v)
+	vs := reflect.ValueOf(v)
+	for i := 0; i < ks.NumField(); i++ {
+		k := ks.Field(i)
+		v := vs.Field(i)
+		if k.Type.Kind() == reflect.Bool && v.Bool() {
+			d = append(d, k.Name)
+		}
+	}
+	return d
 }
 
 func formatSize(n int64) string {
@@ -381,7 +420,11 @@ func main() {
 		return
 	}
 	if fVersion {
-		printf("%s [%s-%s] %s (%s)\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev)
+		if fVerbose {
+			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
+		} else {
+			printf("%s %s (%s)\n", app, gitTag, gitRev[:int(math.Min((float64(len(gitRev))), 7))])
+		}
 		return
 	}
 	flags := flagsSet()
