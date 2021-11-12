@@ -14,7 +14,7 @@ if [[ $1 = "build" ]]; then
     "aix ppc64"
     # "android amd64"
     # "android arm"
-    "android arm64"
+    # "android arm64"
     "darwin amd64"
     "darwin arm64"
     "dragonfly amd64"
