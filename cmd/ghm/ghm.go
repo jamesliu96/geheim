@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/jamesliu96/geheim"
@@ -202,7 +203,7 @@ func getCPUFeatures() []string {
 		k := ks.Field(i)
 		v := vs.Field(i)
 		if k.Type.Kind() == reflect.Bool && v.Bool() {
-			d = append(d, k.Name)
+			d = append(d, strings.TrimPrefix(strings.TrimPrefix(k.Name, "Has"), "Is"))
 		}
 	}
 	return d
