@@ -53,15 +53,12 @@ func registerFlags() {
 	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
 	flag.StringVar(&fOut, "o", "", "output `path` (default `stdout`)")
 	flag.StringVar(&fSign, "s", "", "signature `path`")
-	flag.StringVar(&fSignHex, "S", "", "signature hex")
+	flag.StringVar(&fSignHex, "ss", "", "signature `hex`")
 	flag.StringVar(&fPass, "p", "", "`passcode`")
 	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing destination")
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
 	flag.BoolVar(&fVerbose, "v", false, "verbose")
-	flag.BoolVar(&fProgress, "P", false, "show progress")
-	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.BoolVar(&fDry, "j", false, "dry run")
-	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 	flag.IntVar(&fCipher, "c", int(geheim.DefaultCipher),
 		fmt.Sprintf("[enc] %s (%s)", geheim.CipherDesc, geheim.GetCipherString()),
 	)
@@ -80,15 +77,9 @@ func registerFlags() {
 	flag.IntVar(&fSL, "e", geheim.DefaultSec,
 		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
 	)
-	if len(os.Args) <= 1 {
-		flag.Usage()
-		return
-	}
-	flag.Parse()
-	if flag.NArg() != 0 {
-		flag.Usage()
-		return
-	}
+	flag.BoolVar(&fVersion, "V", false, "print version")
+	flag.BoolVar(&fProgress, "P", false, "show progress")
+	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 }
 
 var flags map[string]bool
@@ -410,7 +401,7 @@ func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 		if err != nil {
 			return
 		}
-	} else if flags["S"] {
+	} else if flags["ss"] {
 		signex, err = hex.DecodeString(fSignHex)
 		if err != nil {
 			return
@@ -435,6 +426,15 @@ func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 
 func main() {
 	registerFlags()
+	if len(os.Args) <= 1 {
+		flag.Usage()
+		return
+	}
+	flag.Parse()
+	if flag.NArg() != 0 {
+		flag.Usage()
+		return
+	}
 	if fVersion {
 		if fVerbose {
 			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
