@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -34,6 +35,7 @@ var (
 	fIn        string
 	fOut       string
 	fSign      string
+	fSignHex   string
 	fPass      string
 	fOverwrite bool
 	fVerbose   bool
@@ -43,12 +45,59 @@ var (
 	fGen       int
 )
 
-func flagsSet() map[string]bool {
-	flags := map[string]bool{}
+func registerFlags() {
+	flag.Usage = func() {
+		printf("usage: %s [option]...\noptions:\n", app)
+		flag.PrintDefaults()
+	}
+	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
+	flag.StringVar(&fOut, "o", "", "output `path` (default `stdout`)")
+	flag.StringVar(&fSign, "s", "", "signature `path`")
+	flag.StringVar(&fSignHex, "S", "", "signature hex")
+	flag.StringVar(&fPass, "p", "", "`passcode`")
+	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing destination")
+	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
+	flag.BoolVar(&fVerbose, "v", false, "verbose")
+	flag.BoolVar(&fProgress, "P", false, "show progress")
+	flag.BoolVar(&fVersion, "V", false, "print version")
+	flag.BoolVar(&fDry, "j", false, "dry run")
+	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
+	flag.IntVar(&fCipher, "c", int(geheim.DefaultCipher),
+		fmt.Sprintf("[enc] %s (%s)", geheim.CipherDesc, geheim.GetCipherString()),
+	)
+	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
+		fmt.Sprintf("[enc] %s (%s)", geheim.ModeDesc, geheim.GetModeString()),
+	)
+	flag.IntVar(&fKDF, "k", int(geheim.DefaultKDF),
+		fmt.Sprintf("[enc] %s (%s)", geheim.KDFDesc, geheim.GetKDFString()),
+	)
+	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
+		fmt.Sprintf("[enc] %s (%s)", geheim.MACDesc, geheim.GetMACString()),
+	)
+	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
+		fmt.Sprintf("[enc] %s (%s)", geheim.MDDesc, geheim.GetMDString()),
+	)
+	flag.IntVar(&fSL, "e", geheim.DefaultSec,
+		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
+	)
+	if len(os.Args) <= 1 {
+		flag.Usage()
+		return
+	}
+	flag.Parse()
+	if flag.NArg() != 0 {
+		flag.Usage()
+		return
+	}
+}
+
+var flags map[string]bool
+
+func setFlags() {
+	flags = map[string]bool{}
 	flag.Visit(func(f *flag.Flag) {
 		flags[f.Name] = true
 	})
-	return flags
 }
 
 func printf(format string, v ...interface{}) {
@@ -361,6 +410,13 @@ func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 		if err != nil {
 			return
 		}
+	} else if flags["S"] {
+		signex, err = hex.DecodeString(fSignHex)
+		if err != nil {
+			return
+		}
+	}
+	if signex != nil {
 		if fVerbose {
 			printf("%-8s%x\n", "SIGNEX", signex)
 		}
@@ -378,48 +434,7 @@ func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 }
 
 func main() {
-	flag.Usage = func() {
-		printf("usage: %s [option]...\noptions:\n", app)
-		flag.PrintDefaults()
-	}
-	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
-	flag.StringVar(&fOut, "o", "", "output `path` (default `stdout`)")
-	flag.StringVar(&fSign, "s", "", "signature `path`")
-	flag.StringVar(&fPass, "p", "", "`passcode`")
-	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing destination")
-	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
-	flag.BoolVar(&fVerbose, "v", false, "verbose")
-	flag.BoolVar(&fProgress, "P", false, "show progress")
-	flag.BoolVar(&fVersion, "V", false, "print version")
-	flag.BoolVar(&fDry, "j", false, "dry run")
-	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
-	flag.IntVar(&fCipher, "c", int(geheim.DefaultCipher),
-		fmt.Sprintf("[enc] %s (%s)", geheim.CipherDesc, geheim.GetCipherString()),
-	)
-	flag.IntVar(&fMode, "m", int(geheim.DefaultMode),
-		fmt.Sprintf("[enc] %s (%s)", geheim.ModeDesc, geheim.GetModeString()),
-	)
-	flag.IntVar(&fKDF, "k", int(geheim.DefaultKDF),
-		fmt.Sprintf("[enc] %s (%s)", geheim.KDFDesc, geheim.GetKDFString()),
-	)
-	flag.IntVar(&fMAC, "a", int(geheim.DefaultMAC),
-		fmt.Sprintf("[enc] %s (%s)", geheim.MACDesc, geheim.GetMACString()),
-	)
-	flag.IntVar(&fMD, "h", int(geheim.DefaultMD),
-		fmt.Sprintf("[enc] %s (%s)", geheim.MDDesc, geheim.GetMDString()),
-	)
-	flag.IntVar(&fSL, "e", geheim.DefaultSec,
-		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
-	)
-	if len(os.Args) <= 1 {
-		flag.Usage()
-		return
-	}
-	flag.Parse()
-	if flag.NArg() != 0 {
-		flag.Usage()
-		return
-	}
+	registerFlags()
 	if fVersion {
 		if fVerbose {
 			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
@@ -428,7 +443,7 @@ func main() {
 		}
 		return
 	}
-	flags := flagsSet()
+	setFlags()
 	if flags["G"] && fGen > 0 {
 		if s, err := geheim.RandASCIIString(fGen); check(err) {
 			return

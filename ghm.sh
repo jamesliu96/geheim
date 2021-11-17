@@ -2,13 +2,17 @@
 
 set -e
 
+pkg=github.com/jamesliu96/geheim/cmd/ghm
+app=ghm
 tag=$(git describe --tags --always)
 rev=$(git rev-list -1 HEAD)
-pkg=github.com/jamesliu96/geheim/cmd/ghm
 ldflags="-X main.gitTag=$tag -X main.gitRev=$rev"
+outdir=build
+echo "# $pkg $tag $rev"
 
-if [[ $1 = "build" ]]; then
-  rm -rf build
+if [[ $1 = "-build" ]]; then
+  printf "removing \"$outdir\" ... "
+  rm -rf $outdir && echo "SUCCESS" || echo "FAILED"
   ldflags="$ldflags -s -w"
   osarchs=(
     "aix ppc64"
@@ -57,14 +61,15 @@ if [[ $1 = "build" ]]; then
     osarch=($i)
     os=${osarch[0]}
     arch=${osarch[1]}
-    suffix=""
+    suffix=
     [[ $os = "windows" ]] && suffix=".exe"
     [[ $arch = "wasm" ]] && suffix=".wasm"
-    out="build/ghm_${os}_$arch$suffix"
+    out="${outdir}/${app}_${os}_$arch$suffix"
     printf "building \"$out\" ... "
     CGO_ENABLED=1 GOOS=$os GOARCH=$arch \
-      go build -trimpath -ldflags="$ldflags" -o $out $pkg
-    [[ $? == 0 ]] && echo "SUCCESS" || echo "FAILED"
+      go build -trimpath -ldflags="$ldflags" -o $out $pkg \
+      && echo "SUCCESS" \
+      || echo "FAILED"
   done
   set -e
 else
