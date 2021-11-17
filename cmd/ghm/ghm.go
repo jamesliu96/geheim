@@ -50,10 +50,13 @@ func registerFlags() {
 		printf("usage: %s [option]...\noptions:\n", app)
 		flag.PrintDefaults()
 	}
+	flag.BoolVar(&fVersion, "V", false, "print version")
+	flag.BoolVar(&fProgress, "P", false, "show progress")
+	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 	flag.StringVar(&fIn, "i", "", "input `path` (default `stdin`)")
 	flag.StringVar(&fOut, "o", "", "output `path` (default `stdout`)")
 	flag.StringVar(&fSign, "s", "", "signature `path`")
-	flag.StringVar(&fSignHex, "ss", "", "signature `hex`")
+	flag.StringVar(&fSignHex, "x", "", "[dec] signature `hex`")
 	flag.StringVar(&fPass, "p", "", "`passcode`")
 	flag.BoolVar(&fOverwrite, "f", false, "allow overwrite to existing destination")
 	flag.BoolVar(&fDecrypt, "d", false, "decrypt")
@@ -77,9 +80,6 @@ func registerFlags() {
 	flag.IntVar(&fSL, "e", geheim.DefaultSec,
 		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
 	)
-	flag.BoolVar(&fVersion, "V", false, "print version")
-	flag.BoolVar(&fProgress, "P", false, "show progress")
-	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
 }
 
 var flags map[string]bool
@@ -243,39 +243,43 @@ func getCPUFeatures() []string {
 		k := ks.Field(i)
 		v := vs.Field(i)
 		if k.Type.Kind() == reflect.Bool && v.Bool() {
-			d = append(d, strings.TrimPrefix(strings.TrimPrefix(k.Name, "Has"), "Is"))
+			name := strings.TrimPrefix(k.Name, "Has")
+			if name == k.Name {
+				name = strings.TrimPrefix(k.Name, "Is")
+			}
+			d = append(d, name)
 		}
 	}
 	return d
 }
 
 func formatSize(n int64) string {
-	var unit byte
+	unit := ""
 	nn := float64(n)
 	f := "%.2f"
 	switch {
 	case n >= 1<<60:
 		nn /= 1 << 60
-		unit = 'E'
+		unit = "E"
 	case n >= 1<<50:
 		nn /= 1 << 50
-		unit = 'P'
+		unit = "P"
 	case n >= 1<<40:
 		nn /= 1 << 40
-		unit = 'T'
+		unit = "T"
 	case n >= 1<<30:
 		nn /= 1 << 30
-		unit = 'G'
+		unit = "G"
 	case n >= 1<<20:
 		nn /= 1 << 20
-		unit = 'M'
+		unit = "M"
 	case n >= 1<<10:
 		nn /= 1 << 10
-		unit = 'K'
+		unit = "K"
 	default:
 		f = "%.f"
 	}
-	return fmt.Sprintf("%s%cB", fmt.Sprintf(f, math.Max(0, nn)), unit)
+	return fmt.Sprintf("%s%sB", fmt.Sprintf(f, math.Max(0, nn)), unit)
 }
 
 type progressWriter struct {
@@ -319,11 +323,12 @@ func (w *progressWriter) print(last bool) {
 	left := fmt.Sprintf("%s%s", formatSize(w.bytesWritten), totalPerc)
 	right := fmt.Sprintf("%s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
-	f := fmt.Sprintf("\r%%-%ds%%s", width-len(right))
-	printf(f, left, right)
+	newline := ""
 	if last {
-		printf("\n")
+		newline = "\n"
 	}
+	f := fmt.Sprintf("\r%%-%ds%%s%s", width-len(right), newline)
+	printf(f, left, right)
 }
 
 var errDry = errors.New("dry run")
@@ -401,7 +406,7 @@ func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 		if err != nil {
 			return
 		}
-	} else if flags["ss"] {
+	} else if flags["x"] {
 		signex, err = hex.DecodeString(fSignHex)
 		if err != nil {
 			return
