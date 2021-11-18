@@ -126,19 +126,21 @@ func getPass(passset bool) ([]byte, error) {
 		return []byte(fPass), nil
 	}
 	var pass []byte
-	err := readPass(&pass, "enter passcode: ")
-	if err != nil {
-		return nil, err
-	}
-	if !fDecrypt {
-		var vpass []byte
-		err := readPass(&vpass, "verify passcode: ")
-		if err != nil {
+	for {
+		if err := readPass(&pass, "enter passcode: "); err != nil {
 			return nil, err
 		}
-		if !bytes.Equal(pass, vpass) {
-			return nil, errors.New("passcode verification failed")
+		if !fDecrypt {
+			var vpass []byte
+			if err := readPass(&vpass, "confirm passcode: "); err != nil {
+				return nil, err
+			}
+			if !bytes.Equal(pass, vpass) {
+				pass = nil
+				continue
+			}
 		}
+		break
 	}
 	return pass, nil
 }
