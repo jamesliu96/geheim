@@ -2,6 +2,7 @@ package geheim
 
 import (
 	"bufio"
+	"crypto/hmac"
 	"errors"
 	"io"
 )
@@ -131,7 +132,7 @@ func DecryptVerify(in io.Reader, out io.Writer, pass []byte, signex []byte, prin
 		return
 	}
 	if signex != nil {
-		if !equal(signex, signed) {
+		if !hmac.Equal(signex, signed) {
 			err = ErrSigVer
 		}
 	}

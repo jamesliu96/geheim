@@ -1,7 +1,6 @@
 package geheim
 
 import (
-	"crypto/subtle"
 	"fmt"
 )
 
@@ -71,8 +70,4 @@ func ValidateConfig(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) 
 		err = fmt.Errorf("invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 	}
 	return
-}
-
-func equal(a, b []byte) bool {
-	return subtle.ConstantTimeCompare(a, b) == 1
 }

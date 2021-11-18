@@ -46,10 +46,6 @@ var (
 )
 
 func registerFlags() {
-	flag.Usage = func() {
-		printf("usage: %s [option]...\noptions:\n", app)
-		flag.PrintDefaults()
-	}
 	flag.BoolVar(&fVersion, "V", false, "print version")
 	flag.BoolVar(&fProgress, "P", false, "show progress")
 	flag.IntVar(&fGen, "G", 0, "generate random string of `length`")
@@ -84,10 +80,10 @@ func registerFlags() {
 
 var flags map[string]bool
 
-func setFlags() {
-	flags = map[string]bool{}
+func setFlags(flags *map[string]bool) {
+	*flags = map[string]bool{}
 	flag.Visit(func(f *flag.Flag) {
-		flags[f.Name] = true
+		(*flags)[f.Name] = true
 	})
 }
 
@@ -95,9 +91,22 @@ func printf(format string, v ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, v...)
 }
 
+var errDry = errors.New("dry run")
+
+var excludes = []error{errDry}
+
+func contains(slice []error, item error) bool {
+	for _, value := range slice {
+		if value == item {
+			return true
+		}
+	}
+	return false
+}
+
 func check(errs ...error) (goterr bool) {
 	for _, err := range errs {
-		if err != nil && !errors.Is(err, errDry) {
+		if err != nil && !contains(excludes, err) {
 			printf("error: %s\n", err)
 			goterr = true
 		}
@@ -214,8 +223,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 	return
 }
 
-func getCPUFeatures() []string {
-	d := []string{}
+func getCPUFeatures() (d []string) {
 	var v interface{}
 	switch runtime.GOARCH {
 	case "386":
@@ -237,7 +245,7 @@ func getCPUFeatures() []string {
 	case "s390x":
 		v = cpu.S390X
 	default:
-		return d
+		return
 	}
 	ks := reflect.TypeOf(v)
 	vs := reflect.ValueOf(v)
@@ -252,7 +260,7 @@ func getCPUFeatures() []string {
 			d = append(d, name)
 		}
 	}
-	return d
+	return
 }
 
 func formatSize(n int64) string {
@@ -333,38 +341,6 @@ func (w *progressWriter) print(last bool) {
 	printf(f, left, right)
 }
 
-var errDry = errors.New("dry run")
-
-var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
-	if fVerbose {
-		printf("%-8s%d\n", "VERSION", version)
-		printf("%-8s%s(%d)\n", "CIPHER", geheim.CipherNames[cipher], cipher)
-		if cipher == geheim.AES {
-			printf("%-8s%s(%d)\n", "MODE", geheim.ModeNames[mode], mode)
-		}
-		printf("%-8s%s(%d)\n", "KDF", geheim.KDFNames[kdf], kdf)
-		printf("%-8s%s(%d)\n", "MAC", geheim.MACNames[mac], mac)
-		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
-			printf("%-8s%s(%d)\n", "MD", geheim.MDNames[md], md)
-		}
-		iter, memory := geheim.GetSecIterMemory(sec)
-		if kdf == geheim.PBKDF2 {
-			printf("%-8s%d(%d)\n", "SEC", sec, iter)
-		}
-		if kdf == geheim.Argon2 || kdf == geheim.Scrypt {
-			printf("%-8s%d(%s)\n", "SEC", sec, formatSize(int64(memory)))
-		}
-		printf("%-8s%s\n", "PASS", pass)
-		printf("%-8s%x\n", "SALT", salt)
-		printf("%-8s%x\n", "IV", iv)
-		printf("%-8s%x\n", "KEY", key)
-	}
-	if fDry {
-		return errDry
-	}
-	return nil
-}
-
 const progressDuration = time.Second
 
 func wrapProgress(r io.Reader, total int64, progress bool) (wrapped io.Reader, done chan<- struct{}) {
@@ -383,6 +359,35 @@ func doneProgress(done chan<- struct{}) {
 	if done != nil {
 		done <- struct{}{}
 	}
+}
+
+var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
+	if fVerbose {
+		printf("%-8s%d\n", "VERSION", version)
+		printf("%-8s%s(%d)\n", "CIPHER", geheim.CipherNames[cipher], cipher)
+		if cipher == geheim.AES {
+			printf("%-8s%s(%d)\n", "MODE", geheim.ModeNames[mode], mode)
+		}
+		printf("%-8s%s(%d)\n", "KDF", geheim.KDFNames[kdf], kdf)
+		printf("%-8s%s(%d)\n", "MAC", geheim.MACNames[mac], mac)
+		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
+			printf("%-8s%s(%d)\n", "MD", geheim.MDNames[md], md)
+		}
+		iter, memory := geheim.GetSecIterMemory(sec)
+		if kdf == geheim.PBKDF2 {
+			printf("%-8s%d(%d)\n", "SEC", sec, iter)
+		} else {
+			printf("%-8s%d(%s)\n", "SEC", sec, formatSize(int64(memory)))
+		}
+		printf("%-8s%s(%x)\n", "PASS", pass, pass)
+		printf("%-8s%x\n", "SALT", salt)
+		printf("%-8s%x\n", "IV", iv)
+		printf("%-8s%x\n", "KEY", key)
+	}
+	if fDry {
+		return errDry
+	}
+	return nil
 }
 
 func enc(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
@@ -432,6 +437,10 @@ func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 }
 
 func main() {
+	flag.Usage = func() {
+		printf("usage: %s [option]...\noptions:\n", app)
+		flag.PrintDefaults()
+	}
 	registerFlags()
 	if len(os.Args) <= 1 {
 		flag.Usage()
@@ -442,7 +451,7 @@ func main() {
 		flag.Usage()
 		return
 	}
-	if fVersion {
+	if flags["V"] {
 		if fVerbose {
 			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
 		} else {
@@ -450,11 +459,9 @@ func main() {
 		}
 		return
 	}
-	setFlags()
-	if flags["G"] && fGen > 0 {
-		if s, err := geheim.RandASCIIString(fGen); check(err) {
-			return
-		} else {
+	setFlags(&flags)
+	if fGen > 0 {
+		if s, err := geheim.RandASCIIString(fGen); !check(err) {
 			fmt.Print(s)
 		}
 		return
