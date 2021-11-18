@@ -451,7 +451,7 @@ func main() {
 		flag.Usage()
 		return
 	}
-	if flags["V"] {
+	if fVersion {
 		if fVerbose {
 			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
 		} else {
