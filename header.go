@@ -24,9 +24,10 @@ const (
 	headerVer3
 	headerVer4
 	headerVer5
+	headerVer6
 )
 
-const version = headerVer5
+const version = headerVer6
 
 func readHeader(r io.Reader, v interface{}) error {
 	return binary.Read(r, binary.BigEndian, v)
@@ -40,6 +41,8 @@ func getHeader(ver uint32) (header, error) {
 	switch ver {
 	case headerVer5:
 		return &headerV5{}, nil
+	case headerVer6:
+		return &headerV6{}, nil
 	}
 	return nil, fmt.Errorf("unsupported header version: %d", ver)
 }
@@ -69,13 +72,14 @@ func (m *meta) Header() (header, error) {
 }
 
 func newMeta() *meta {
-	return &meta{Padding: padding, Version: version}
+	return &meta{padding, version}
 }
 
 type headerV5 struct {
-	Cipher, Mode, KDF, MAC, MD, Sec, SaltSize, IVSize uint8
-	Salt                                              [16]byte
-	IV                                                [16]byte
+	Cipher, Mode, KDF, MAC    uint8
+	MD, Sec, SaltSize, IVSize uint8
+	Salt                      [16]byte
+	IV                        [16]byte
 }
 
 func (v *headerV5) Version() int {
@@ -102,6 +106,48 @@ func (v *headerV5) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec in
 }
 
 func (v *headerV5) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+	cipher = Cipher(v.Cipher)
+	mode = Mode(v.Mode)
+	kdf = KDF(v.KDF)
+	mac = MAC(v.MAC)
+	md = MD(v.MD)
+	sec = int(v.Sec)
+	salt = v.Salt[:int(math.Min(float64((v.SaltSize)), float64(len(v.Salt))))]
+	iv = v.IV[:int(math.Min(float64((v.IVSize)), float64(len(v.IV))))]
+	return
+}
+
+type headerV6 struct {
+	Cipher, Mode, KDF, MAC    uint8
+	MD, Sec, SaltSize, IVSize uint8
+	Salt                      [32]byte
+	IV                        [16]byte
+}
+
+func (v *headerV6) Version() int {
+	return int(headerVer6)
+}
+
+func (v *headerV6) Read(r io.Reader) error {
+	return readHeader(r, v)
+}
+
+func (v *headerV6) Write(w io.Writer) error {
+	return writeHeader(w, v)
+}
+
+func (v *headerV6) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+	v.Cipher = uint8(cipher)
+	v.Mode = uint8(mode)
+	v.KDF = uint8(kdf)
+	v.MAC = uint8(mac)
+	v.MD = uint8(md)
+	v.Sec = uint8(sec)
+	v.SaltSize = uint8(copy(v.Salt[:], salt))
+	v.IVSize = uint8(copy(v.IV[:], iv))
+}
+
+func (v *headerV6) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
 	cipher = Cipher(v.Cipher)
 	mode = Mode(v.Mode)
 	kdf = KDF(v.KDF)
