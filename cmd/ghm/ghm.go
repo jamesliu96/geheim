@@ -78,12 +78,11 @@ func registerFlags() {
 	)
 }
 
-var flags map[string]bool
+var flags = map[string]bool{}
 
-func setFlags(flags *map[string]bool) {
-	*flags = map[string]bool{}
+func setFlags(flags map[string]bool) {
 	flag.Visit(func(f *flag.Flag) {
-		(*flags)[f.Name] = true
+		flags[f.Name] = true
 	})
 }
 
@@ -154,6 +153,15 @@ func getPass(passset bool) ([]byte, error) {
 	return pass, nil
 }
 
+func checkTerminal(fds ...uintptr) error {
+	for _, fd := range fds {
+		if term.IsTerminal(int(fd)) {
+			return errors.New("invalid terminal i/o")
+		}
+	}
+	return nil
+}
+
 func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, err error) {
 	if inset {
 		in, err = os.Open(fIn)
@@ -165,7 +173,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 			return
 		} else {
 			if fi.IsDir() {
-				err = fmt.Errorf("input file `%s` is a directory", fIn)
+				err = fmt.Errorf("input file \"%s\" is a directory", fi.Name())
 				return
 			}
 			inbytes = fi.Size()
@@ -175,8 +183,8 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 	}
 	if outset {
 		if !fOverwrite {
-			if _, e := os.Stat(fOut); e == nil {
-				err = fmt.Errorf("output file `%s` exists, use -f to overwrite", fOut)
+			if fi, e := os.Stat(fOut); e == nil {
+				err = fmt.Errorf("output file \"%s\" exists, use -f to overwrite", fi.Name())
 				return
 			}
 		}
@@ -191,6 +199,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 		printf("%-8s%s\n", "INPUT", in.Name())
 		printf("%-8s%s\n", "OUTPUT", out.Name())
 	}
+	fds := []uintptr{in.Fd(), out.Fd()}
 	if signset {
 		if fDecrypt {
 			sign, err = os.Open(fSign)
@@ -201,13 +210,13 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 				err = e
 				return
 			} else if fi.IsDir() {
-				err = fmt.Errorf("signature file `%s` is a directory", fSign)
+				err = fmt.Errorf("signature file \"%s\" is a directory", fi.Name())
 				return
 			}
 		} else {
 			if !fOverwrite {
-				if _, e := os.Stat(fSign); e == nil {
-					err = fmt.Errorf("signature file `%s` exists, use -f to overwrite", fSign)
+				if fi, e := os.Stat(fSign); e == nil {
+					err = fmt.Errorf("signature file \"%s\" exists, use -f to overwrite", fi.Name())
 					return
 				}
 			}
@@ -219,7 +228,9 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 		if fVerbose {
 			printf("%-8s%s\n", "SIGN", sign.Name())
 		}
+		fds = append(fds, sign.Fd())
 	}
+	err = checkTerminal(fds...)
 	return
 }
 
@@ -459,7 +470,7 @@ func main() {
 		}
 		return
 	}
-	setFlags(&flags)
+	setFlags(flags)
 	if fGen > 0 {
 		if s, err := geheim.RandASCIIString(fGen); !check(err) {
 			fmt.Print(s)
