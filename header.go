@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"unsafe"
 )
 
-type header interface {
+type Header interface {
 	Version() int
+	Size() int
 	Read(io.Reader) error
 	Write(io.Writer) error
 	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
@@ -37,7 +39,7 @@ func writeHeader(w io.Writer, v interface{}) error {
 	return binary.Write(w, binary.BigEndian, v)
 }
 
-func getHeader(ver uint32) (header, error) {
+func getHeader(ver uint32) (Header, error) {
 	switch ver {
 	case headerVer5:
 		return &headerV5{}, nil
@@ -47,12 +49,16 @@ func getHeader(ver uint32) (header, error) {
 	return nil, fmt.Errorf("unsupported header version: %d", ver)
 }
 
-type meta struct {
+type Meta struct {
 	Padding uint32
 	Version uint32
 }
 
-func (m *meta) Read(r io.Reader) error {
+func (m *Meta) Size() int {
+	return int(unsafe.Sizeof(*m))
+}
+
+func (m *Meta) Read(r io.Reader) error {
 	err := readHeader(r, m)
 	if err != nil {
 		return err
@@ -63,16 +69,16 @@ func (m *meta) Read(r io.Reader) error {
 	return nil
 }
 
-func (m *meta) Write(w io.Writer) error {
+func (m *Meta) Write(w io.Writer) error {
 	return writeHeader(w, m)
 }
 
-func (m *meta) Header() (header, error) {
+func (m *Meta) Header() (Header, error) {
 	return getHeader(m.Version)
 }
 
-func newMeta() *meta {
-	return &meta{padding, version}
+func NewMeta() *Meta {
+	return &Meta{padding, version}
 }
 
 type headerV5 struct {
@@ -84,6 +90,10 @@ type headerV5 struct {
 
 func (v *headerV5) Version() int {
 	return int(headerVer5)
+}
+
+func (v *headerV5) Size() int {
+	return int(unsafe.Sizeof(*v))
 }
 
 func (v *headerV5) Read(r io.Reader) error {
@@ -126,6 +136,10 @@ type headerV6 struct {
 
 func (v *headerV6) Version() int {
 	return int(headerVer6)
+}
+
+func (v *headerV6) Size() int {
+	return int(unsafe.Sizeof(*v))
 }
 
 func (v *headerV6) Read(r io.Reader) error {
