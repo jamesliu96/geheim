@@ -254,7 +254,7 @@ func getCPUFeatures() (d []string) {
 }
 
 func formatSize(n int64) string {
-	unit := ""
+	var unit string
 	nn := float64(n)
 	f := "%.2f"
 	switch {
@@ -296,7 +296,7 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 }
 
 func (w *progressWriter) Progress(done <-chan struct{}, d time.Duration) {
-	stop := false
+	var stop bool
 	for {
 		n := time.Now()
 		select {
@@ -316,14 +316,14 @@ func (w *progressWriter) Progress(done <-chan struct{}, d time.Duration) {
 }
 
 func (w *progressWriter) print(last bool) {
-	totalPerc := ""
+	var totalPerc string
 	if w.TotalBytes != 0 {
 		totalPerc = fmt.Sprintf("/%s (%.f%%)", formatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
 	}
 	left := fmt.Sprintf("%s%s", formatSize(w.bytesWritten), totalPerc)
 	right := fmt.Sprintf("%s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
-	newline := ""
+	var newline string
 	if last {
 		newline = "\n"
 	}
@@ -380,7 +380,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 	return nil
 }
 
-func enc(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
+func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	wrapped, done := wrapProgress(in, inbytes, *fProgress)
 	signed, err := geheim.Encrypt(wrapped, out, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSL, dbg)
 	doneProgress(done)
@@ -396,7 +396,7 @@ func enc(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
 	return
 }
 
-func dec(in, out, sign *os.File, inbytes int64, pass []byte) (err error) {
+func dec(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	var signex []byte
 	if sign != nil {
 		signex, err = io.ReadAll(sign)
@@ -476,9 +476,9 @@ func main() {
 		return
 	}
 	if *fDecrypt {
-		err = dec(in, out, sign, inbytes, pass)
+		err = dec(in, out, sign, pass, inbytes)
 	} else {
-		err = enc(in, out, sign, inbytes, pass)
+		err = enc(in, out, sign, pass, inbytes)
 	}
 	check(err)
 }
