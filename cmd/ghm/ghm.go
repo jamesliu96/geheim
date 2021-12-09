@@ -444,7 +444,7 @@ func main() {
 		if *fVerbose {
 			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
 		} else {
-			printf("%s %s (%s)\n", app, gitTag, gitRev[:int(math.Min((float64(len(gitRev))), 7))])
+			printf("%s %s (%s)\n", app, gitTag, gitRev[:int(math.Min(float64(len(gitRev)), 7))])
 		}
 		return
 	}
