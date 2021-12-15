@@ -34,9 +34,13 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
+	err = ValidateConfig(cipher, mode, kdf, mac, md, sec)
+	if err != nil {
+		return
+	}
 	sm, mode := getStreamMode(mode, false)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
+	dk, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
 	if err != nil {
 		return
 	}
@@ -101,7 +105,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signe
 	}
 	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
-	dk, kdf, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
+	dk, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
 	if err != nil {
 		return
 	}

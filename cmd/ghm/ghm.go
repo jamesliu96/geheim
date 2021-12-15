@@ -363,7 +363,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
 			printf("%-8s%s(%d)\n", "MD", geheim.MDNames[md], md)
 		}
-		iter, memory := geheim.GetSecIterMemory(sec)
+		iter, memory, sec := geheim.GetSecIterMemory(sec)
 		if kdf == geheim.PBKDF2 {
 			printf("%-8s%d(%d)\n", "SEC", sec, iter)
 		} else {
@@ -454,11 +454,6 @@ func main() {
 			fmt.Print(s)
 		}
 		return
-	}
-	if !*fDecrypt {
-		if check(geheim.ValidateConfig(geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSL)) {
-			return
-		}
 	}
 	in, out, sign, inbytes, err := getIO(flags["i"], flags["o"], flags["s"])
 	if check(err) {
