@@ -16,9 +16,9 @@ const (
 	DefaultSec    = 10
 )
 
-func Encrypt(r io.Reader, o io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
 	br := bufio.NewReader(r)
-	bw := bufio.NewWriter(o)
+	bw := bufio.NewWriter(w)
 	defer (func() {
 		if err == nil {
 			err = bw.Flush()
