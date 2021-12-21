@@ -321,9 +321,11 @@ func doneProgress(done chan<- struct{}) {
 	}
 }
 
+var defaultPrintFunc = geheim.NewPrintFunc(os.Stderr)
+
 var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
 	if *fVerbose {
-		geheim.DefaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, key)
+		defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, key)
 	}
 	if *fDry {
 		return errDry

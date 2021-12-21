@@ -2,8 +2,8 @@ package geheim
 
 import (
 	"fmt"
+	"io"
 	"math"
-	"os"
 )
 
 const (
@@ -103,26 +103,28 @@ func FormatSize(n int64) string {
 	return fmt.Sprintf("%s%sB", fmt.Sprintf(f, math.Max(0, nn)), unit)
 }
 
-var DefaultPrintFunc PrintFunc = func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, key []byte) error {
-	fmt.Fprintf(os.Stderr, "%-8s%d\n", "VERSION", version)
-	fmt.Fprintf(os.Stderr, "%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
-	if cipher == AES {
-		fmt.Fprintf(os.Stderr, "%-8s%s(%d)\n", "MODE", ModeNames[mode], mode)
+func NewPrintFunc(w io.Writer) PrintFunc {
+	return func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, key []byte) error {
+		fmt.Fprintf(w, "%-8s%d\n", "VERSION", version)
+		fmt.Fprintf(w, "%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
+		if cipher == AES {
+			fmt.Fprintf(w, "%-8s%s(%d)\n", "MODE", ModeNames[mode], mode)
+		}
+		fmt.Fprintf(w, "%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
+		fmt.Fprintf(w, "%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
+		if kdf == PBKDF2 || mac == HMAC {
+			fmt.Fprintf(w, "%-8s%s(%d)\n", "MD", MDNames[md], md)
+		}
+		iter, memory, sec := GetSecIterMemory(sec)
+		if kdf == PBKDF2 {
+			fmt.Fprintf(w, "%-8s%d(%d)\n", "SEC", sec, iter)
+		} else {
+			fmt.Fprintf(w, "%-8s%d(%s)\n", "SEC", sec, FormatSize(int64(memory)))
+		}
+		fmt.Fprintf(w, "%-8s%s(%x)\n", "PASS", pass, pass)
+		fmt.Fprintf(w, "%-8s%x\n", "SALT", salt)
+		fmt.Fprintf(w, "%-8s%x\n", "IV", iv)
+		fmt.Fprintf(w, "%-8s%x\n", "KEY", key)
+		return nil
 	}
-	fmt.Fprintf(os.Stderr, "%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
-	fmt.Fprintf(os.Stderr, "%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
-	if kdf == PBKDF2 || mac == HMAC {
-		fmt.Fprintf(os.Stderr, "%-8s%s(%d)\n", "MD", MDNames[md], md)
-	}
-	iter, memory, sec := GetSecIterMemory(sec)
-	if kdf == PBKDF2 {
-		fmt.Fprintf(os.Stderr, "%-8s%d(%d)\n", "SEC", sec, iter)
-	} else {
-		fmt.Fprintf(os.Stderr, "%-8s%d(%s)\n", "SEC", sec, FormatSize(int64(memory)))
-	}
-	fmt.Fprintf(os.Stderr, "%-8s%s(%x)\n", "PASS", pass, pass)
-	fmt.Fprintf(os.Stderr, "%-8s%x\n", "SALT", salt)
-	fmt.Fprintf(os.Stderr, "%-8s%x\n", "IV", iv)
-	fmt.Fprintf(os.Stderr, "%-8s%x\n", "KEY", key)
-	return nil
 }
