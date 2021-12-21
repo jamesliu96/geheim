@@ -16,12 +16,12 @@ const (
 	DefaultSec    = 10
 )
 
-func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (signed []byte, err error) {
-	r := bufio.NewReader(in)
-	w := bufio.NewWriter(out)
+func Encrypt(r io.Reader, o io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
+	br := bufio.NewReader(r)
+	bw := bufio.NewWriter(o)
 	defer (func() {
 		if err == nil {
-			err = w.Flush()
+			err = bw.Flush()
 		}
 	})()
 	salt := make([]byte, saltSize)
@@ -61,32 +61,32 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 			return
 		}
 	}
-	err = meta.Write(w)
+	err = meta.Write(bw)
 	if err != nil {
 		return
 	}
-	err = header.Write(w)
+	err = header.Write(bw)
 	if err != nil {
 		return
 	}
-	_, err = io.Copy(io.MultiWriter(newCipherStreamWriter(s, w), h), r)
+	_, err = io.Copy(io.MultiWriter(newCipherStreamWriter(s, bw), h), br)
 	if err != nil {
 		return
 	}
-	signed = h.Sum(nil)
+	sign = h.Sum(nil)
 	return
 }
 
-func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signed []byte, err error) {
-	r := bufio.NewReader(in)
-	w := bufio.NewWriter(out)
+func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []byte, err error) {
+	br := bufio.NewReader(r)
+	bw := bufio.NewWriter(w)
 	defer (func() {
 		if err == nil {
-			err = w.Flush()
+			err = bw.Flush()
 		}
 	})()
 	meta := &meta{}
-	err = meta.Read(r)
+	err = meta.Read(br)
 	if err != nil {
 		return
 	}
@@ -94,7 +94,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signe
 	if err != nil {
 		return
 	}
-	err = header.Read(r)
+	err = header.Read(br)
 	if err != nil {
 		return
 	}
@@ -120,23 +120,23 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signe
 			return
 		}
 	}
-	_, err = io.Copy(io.MultiWriter(w, h), newCipherStreamReader(s, r))
+	_, err = io.Copy(io.MultiWriter(bw, h), newCipherStreamReader(s, br))
 	if err != nil {
 		return
 	}
-	signed = h.Sum(nil)
+	sign = h.Sum(nil)
 	return
 }
 
 var ErrSigVer = errors.New("signature verification failed")
 
-func DecryptVerify(in io.Reader, out io.Writer, pass []byte, signex []byte, printFn PrintFunc) (signed []byte, err error) {
-	signed, err = Decrypt(in, out, pass, printFn)
+func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFn PrintFunc) (sign []byte, err error) {
+	sign, err = Decrypt(r, w, pass, printFn)
 	if err != nil {
 		return
 	}
 	if signex != nil {
-		if !hmac.Equal(signex, signed) {
+		if !hmac.Equal(signex, sign) {
 			err = ErrSigVer
 		}
 	}
