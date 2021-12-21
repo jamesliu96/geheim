@@ -54,7 +54,6 @@ var (
 	fProgress  = flag.Bool("P", false, "show progress")
 	fVersion   = flag.Bool("V", false, "print version")
 	fDry       = flag.Bool("j", false, "dry run")
-	fGen       = flag.Int("G", 0, "generate random string of `length`")
 )
 
 var flags = map[string]bool{}
@@ -253,35 +252,6 @@ func getCPUFeatures() (d []string) {
 	return
 }
 
-func formatSize(n int64) string {
-	var unit string
-	nn := float64(n)
-	f := "%.2f"
-	switch {
-	case n >= 1<<60:
-		nn /= 1 << 60
-		unit = "E"
-	case n >= 1<<50:
-		nn /= 1 << 50
-		unit = "P"
-	case n >= 1<<40:
-		nn /= 1 << 40
-		unit = "T"
-	case n >= 1<<30:
-		nn /= 1 << 30
-		unit = "G"
-	case n >= 1<<20:
-		nn /= 1 << 20
-		unit = "M"
-	case n >= 1<<10:
-		nn /= 1 << 10
-		unit = "K"
-	default:
-		f = "%.f"
-	}
-	return fmt.Sprintf("%s%sB", fmt.Sprintf(f, math.Max(0, nn)), unit)
-}
-
 type progressWriter struct {
 	TotalBytes       int64
 	bytesWritten     int64
@@ -318,10 +288,10 @@ func (w *progressWriter) Progress(done <-chan struct{}, d time.Duration) {
 func (w *progressWriter) print(last bool) {
 	var totalPerc string
 	if w.TotalBytes != 0 {
-		totalPerc = fmt.Sprintf("/%s (%.f%%)", formatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
+		totalPerc = fmt.Sprintf("/%s (%.f%%)", geheim.FormatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
 	}
-	left := fmt.Sprintf("%s%s", formatSize(w.bytesWritten), totalPerc)
-	right := fmt.Sprintf("%s/s", formatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
+	left := fmt.Sprintf("%s%s", geheim.FormatSize(w.bytesWritten), totalPerc)
+	right := fmt.Sprintf("%s/s", geheim.FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
 	var newline string
 	if last {
@@ -351,28 +321,9 @@ func doneProgress(done chan<- struct{}) {
 	}
 }
 
-var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
+var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
 	if *fVerbose {
-		printf("%-8s%d\n", "VERSION", version)
-		printf("%-8s%s(%d)\n", "CIPHER", geheim.CipherNames[cipher], cipher)
-		if cipher == geheim.AES {
-			printf("%-8s%s(%d)\n", "MODE", geheim.ModeNames[mode], mode)
-		}
-		printf("%-8s%s(%d)\n", "KDF", geheim.KDFNames[kdf], kdf)
-		printf("%-8s%s(%d)\n", "MAC", geheim.MACNames[mac], mac)
-		if kdf == geheim.PBKDF2 || mac == geheim.HMAC {
-			printf("%-8s%s(%d)\n", "MD", geheim.MDNames[md], md)
-		}
-		iter, memory, sec := geheim.GetSecIterMemory(sec)
-		if kdf == geheim.PBKDF2 {
-			printf("%-8s%d(%d)\n", "SEC", sec, iter)
-		} else {
-			printf("%-8s%d(%s)\n", "SEC", sec, formatSize(int64(memory)))
-		}
-		printf("%-8s%s(%x)\n", "PASS", pass, pass)
-		printf("%-8s%x\n", "SALT", salt)
-		printf("%-8s%x\n", "IV", iv)
-		printf("%-8s%x\n", "KEY", key)
+		geheim.DefaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, key)
 	}
 	if *fDry {
 		return errDry
@@ -382,7 +333,7 @@ var dbg geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.M
 
 func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	wrapped, done := wrapProgress(in, inbytes, *fProgress)
-	signed, err := geheim.Encrypt(wrapped, out, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSL, dbg)
+	signed, err := geheim.Encrypt(wrapped, out, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSL, printFunc)
 	doneProgress(done)
 	if err != nil {
 		return
@@ -415,7 +366,7 @@ func dec(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 		}
 	}
 	wrapped, done := wrapProgress(in, inbytes, *fProgress)
-	signed, err := geheim.DecryptVerify(wrapped, out, pass, signex, dbg)
+	signed, err := geheim.DecryptVerify(wrapped, out, pass, signex, printFunc)
 	doneProgress(done)
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
@@ -449,12 +400,6 @@ func main() {
 		return
 	}
 	setFlags(flags)
-	if *fGen > 0 {
-		if s, err := geheim.RandASCIIString(*fGen); !check(err) {
-			fmt.Print(s)
-		}
-		return
-	}
 	in, out, sign, inbytes, err := getIO(flags["i"], flags["o"], flags["s"])
 	if check(err) {
 		return

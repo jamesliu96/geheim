@@ -34,7 +34,7 @@ func Encrypt(in io.Reader, out io.Writer, pass []byte, cipher Cipher, mode Mode,
 	if err != nil {
 		return
 	}
-	err = ValidateConfig(cipher, mode, kdf, mac, md, sec)
+	err = Validate(cipher, mode, kdf, mac, md, sec)
 	if err != nil {
 		return
 	}
@@ -99,7 +99,7 @@ func Decrypt(in io.Reader, out io.Writer, pass []byte, printFn PrintFunc) (signe
 		return
 	}
 	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
-	err = ValidateConfig(cipher, mode, kdf, mac, md, sec)
+	err = Validate(cipher, mode, kdf, mac, md, sec)
 	if err != nil {
 		return
 	}
