@@ -49,7 +49,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 		return
 	}
 	h, mac := getMAC(mac, mdfn, dk)
-	meta := newMeta()
+	meta := NewMeta(HeaderVersion)
 	header, err := meta.Header()
 	if err != nil {
 		return

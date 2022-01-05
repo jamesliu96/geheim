@@ -27,7 +27,7 @@ const (
 	headerVer6
 )
 
-const version = headerVer6
+const HeaderVersion = headerVer6
 
 func readHeader(r io.Reader, v interface{}) error {
 	return binary.Read(r, binary.BigEndian, v)
@@ -71,8 +71,8 @@ func (m *meta) Header() (header, error) {
 	return getHeader(m.Version)
 }
 
-func newMeta() *meta {
-	return &meta{padding, version}
+func NewMeta(ver uint32) *meta {
+	return &meta{padding, ver}
 }
 
 type headerV5 struct {
