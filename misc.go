@@ -1,6 +1,7 @@
 package geheim
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"math"
@@ -127,4 +128,9 @@ func NewPrintFunc(w io.Writer) PrintFunc {
 		fmt.Fprintf(w, "%-8s%x\n", "KEY", key)
 		return nil
 	}
+}
+
+func randRead(buf []byte) (err error) {
+	_, err = rand.Read(buf)
+	return
 }
