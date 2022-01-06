@@ -85,7 +85,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 			err = bw.Flush()
 		}
 	})()
-	meta := &meta{}
+	meta := &Meta{}
 	err = meta.Read(br)
 	if err != nil {
 		return
