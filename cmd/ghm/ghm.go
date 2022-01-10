@@ -21,8 +21,10 @@ import (
 
 const app = "ghm"
 
-var gitTag = "*"
-var gitRev = "*"
+var (
+	gitTag = "*"
+	gitRev = "*"
+)
 
 var (
 	fDecrypt = flag.Bool("d", false, "decrypt")
