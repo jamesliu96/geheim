@@ -29,11 +29,11 @@ const (
 
 const HeaderVersion = headerVer6
 
-func readHeader(r io.Reader, v interface{}) error {
+func readHeader(r io.Reader, v any) error {
 	return binary.Read(r, binary.BigEndian, v)
 }
 
-func writeHeader(w io.Writer, v interface{}) error {
+func writeHeader(w io.Writer, v any) error {
 	return binary.Write(w, binary.BigEndian, v)
 }
 

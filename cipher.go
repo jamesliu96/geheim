@@ -4,9 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"errors"
-	"fmt"
 	"io"
-	"strings"
 
 	"golang.org/x/crypto/chacha20"
 )
@@ -36,11 +34,7 @@ var keySizes = map[Cipher]int{
 var ciphers = [...]Cipher{AES, Chacha20}
 
 func GetCipherString() string {
-	d := make([]string, len(ciphers))
-	for i, cipher := range ciphers {
-		d[i] = fmt.Sprintf("%d:%s", cipher, CipherNames[cipher])
-	}
-	return strings.Join(d, ", ")
+	return getString(ciphers[:], CipherNames)
 }
 
 type Mode uint8
@@ -60,11 +54,7 @@ var ModeNames = map[Mode]string{
 var modes = [...]Mode{CTR, CFB, OFB}
 
 func GetModeString() string {
-	d := make([]string, len(modes))
-	for i, mode := range modes {
-		d[i] = fmt.Sprintf("%d:%s", mode, ModeNames[mode])
-	}
-	return strings.Join(d, ", ")
+	return getString(modes[:], ModeNames)
 }
 
 func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {

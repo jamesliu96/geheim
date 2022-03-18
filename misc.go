@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 )
 
 const (
@@ -133,4 +134,12 @@ func NewPrintFunc(w io.Writer) PrintFunc {
 func randRead(buf []byte) (err error) {
 	_, err = rand.Read(buf)
 	return
+}
+
+func getString[T comparable](list []T, names map[T]string) string {
+	d := make([]string, len(list))
+	for i, item := range list {
+		d[i] = fmt.Sprintf("%v:%s", item, names[item])
+	}
+	return strings.Join(d, ", ")
 }

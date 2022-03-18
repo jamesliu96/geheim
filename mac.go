@@ -2,9 +2,7 @@ package geheim
 
 import (
 	"crypto/hmac"
-	"fmt"
 	"hash"
-	"strings"
 )
 
 type MAC uint8
@@ -20,11 +18,7 @@ var MACNames = map[MAC]string{
 var macs = [...]MAC{HMAC}
 
 func GetMACString() string {
-	d := make([]string, len(macs))
-	for i, mac := range macs {
-		d[i] = fmt.Sprintf("%d:%s", mac, MACNames[mac])
-	}
-	return strings.Join(d, ", ")
+	return getString(macs[:], MACNames)
 }
 
 func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (hash.Hash, MAC) {

@@ -3,9 +3,7 @@ package geheim
 import (
 	"crypto/sha256"
 	"crypto/sha512"
-	"fmt"
 	"hash"
-	"strings"
 
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
@@ -48,11 +46,7 @@ var MDNames = map[MD]string{
 var mds = [...]MD{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256, BLAKE2b_256, BLAKE2b_384, BLAKE2b_512}
 
 func GetMDString() string {
-	d := make([]string, len(mds))
-	for i, md := range mds {
-		d[i] = fmt.Sprintf("%d:%s", md, MDNames[md])
-	}
-	return strings.Join(d, ", ")
+	return getString(mds[:], MDNames)
 }
 
 func blake2bNew256() hash.Hash {

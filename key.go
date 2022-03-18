@@ -1,10 +1,8 @@
 package geheim
 
 import (
-	"fmt"
 	"hash"
 	"math"
-	"strings"
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/pbkdf2"
@@ -30,11 +28,7 @@ var KDFNames = map[KDF]string{
 var kdfs = [...]KDF{PBKDF2, Argon2, Scrypt}
 
 func GetKDFString() string {
-	d := make([]string, len(kdfs))
-	for i, kdf := range kdfs {
-		d[i] = fmt.Sprintf("%d:%s", kdf, KDFNames[kdf])
-	}
-	return strings.Join(d, ", ")
+	return getString(kdfs[:], KDFNames)
 }
 
 const (

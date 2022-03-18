@@ -66,26 +66,15 @@ func setFlags(flags map[string]bool) {
 	})
 }
 
-func printf(format string, v ...interface{}) {
+func printf(format string, v ...any) {
 	fmt.Fprintf(os.Stderr, format, v...)
 }
 
 var errDry = errors.New("dry run")
 
-var excludes = []error{errDry}
-
-func contains(slice []error, item error) bool {
-	for _, value := range slice {
-		if value == item {
-			return true
-		}
-	}
-	return false
-}
-
 func check(errs ...error) (goterr bool) {
 	for _, err := range errs {
-		if err != nil && !contains(excludes, err) {
+		if err != nil && err != errDry {
 			printf("error: %s\n", err)
 			goterr = true
 		}
@@ -215,7 +204,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 }
 
 func getCPUFeatures() (d []string) {
-	var v interface{}
+	var v any
 	switch runtime.GOARCH {
 	case "386":
 		fallthrough
