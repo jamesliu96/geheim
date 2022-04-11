@@ -243,62 +243,13 @@ func getCPUFeatures() (d []string) {
 	return
 }
 
-type progressWriter struct {
-	TotalBytes       int64
-	bytesWritten     int64
-	lastBytesWritten int64
-	lastTime         time.Time
-}
-
-func (w *progressWriter) Write(p []byte) (n int, err error) {
-	n = len(p)
-	w.bytesWritten += int64(n)
-	return
-}
-
-func (w *progressWriter) Progress(done <-chan struct{}, d time.Duration) {
-	var stop bool
-	for {
-		n := time.Now()
-		select {
-		case <-done:
-			stop = true
-		default:
-			w.print(false)
-			w.lastBytesWritten = w.bytesWritten
-			w.lastTime = time.Now()
-		}
-		if stop {
-			w.print(true)
-			break
-		}
-		time.Sleep(d - time.Since(n))
-	}
-}
-
-func (w *progressWriter) print(last bool) {
-	var totalPerc string
-	if w.TotalBytes != 0 {
-		totalPerc = fmt.Sprintf("/%s (%.f%%)", geheim.FormatSize(w.TotalBytes), float64(w.bytesWritten)/float64(w.TotalBytes)*100)
-	}
-	left := fmt.Sprintf("%s%s", geheim.FormatSize(w.bytesWritten), totalPerc)
-	right := fmt.Sprintf("%s/s", geheim.FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
-	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
-	var newline string
-	if last {
-		newline = "\n"
-	}
-	f := fmt.Sprintf("\r%%-%ds%%s%s", width-len(right), newline)
-	printf(f, left, right)
-}
-
 const progressDuration = time.Second
 
 func wrapProgress(r io.Reader, total int64, progress bool) (wrapped io.Reader, done chan<- struct{}) {
 	wrapped = r
 	d := make(chan struct{})
 	if progress {
-		p := &progressWriter{TotalBytes: total}
+		p := &geheim.ProgressWriter{TotalBytes: total}
 		go p.Progress(d, progressDuration)
 		wrapped = io.TeeReader(r, p)
 		done = d
