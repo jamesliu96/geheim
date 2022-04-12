@@ -181,6 +181,14 @@ func (w *ProgressWriter) Progress(done <-chan struct{}, d time.Duration) {
 	}
 }
 
+const (
+	leftBracket         = " ["
+	rightBracket        = "] "
+	completeByte   byte = '='
+	incompleteByte byte = '-'
+	arrowByte      byte = '>'
+)
+
 func (w *ProgressWriter) print(last bool) {
 	hasTotalPerc := w.TotalBytes > 0
 	var perc float64
@@ -195,14 +203,18 @@ func (w *ProgressWriter) print(last bool) {
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
 	var middle string
 	if hasTotalPerc {
-		leftBracket, rightBracket := " [", "] "
 		space := width - len(left) - len(right) - len(leftBracket) - len(rightBracket)
 		activeSpace := int(float64(space) * perc)
-		activeBars := strings.Repeat("=", activeSpace)
-		if activeSpace > 0 && activeSpace < space {
-			activeBars = activeBars[:len(activeBars)-1] + ">"
+		bars := make([]byte, space)
+		for i := range bars {
+			if i < activeSpace {
+				bars[i] = completeByte
+			} else if i != 0 && i == activeSpace {
+				bars[i] = arrowByte
+			} else {
+				bars[i] = incompleteByte
+			}
 		}
-		bars := fmt.Sprintf(fmt.Sprintf("%%-%ds", space), activeBars)
 		middle = fmt.Sprintf("%s%s%s", leftBracket, bars, rightBracket)
 	}
 	middle = fmt.Sprintf(fmt.Sprintf("%%%ds", width-len(left)-len(middle)-len(right)), middle)
