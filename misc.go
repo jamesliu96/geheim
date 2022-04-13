@@ -197,19 +197,19 @@ func (w *ProgressWriter) print(last bool) {
 		perc = math.Min(float64(w.bytesWritten)/float64(w.TotalBytes), 1)
 		totalPerc = fmt.Sprintf("/%s (%.f%%)", FormatSize(w.TotalBytes), perc*100)
 	}
-	left, right :=
-		fmt.Sprintf("%s%s", FormatSize(w.bytesWritten), totalPerc),
-		fmt.Sprintf("%s/s", FormatSize(int64(math.Max(float64(w.bytesWritten-w.lastBytesWritten), 0)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
+	left := fmt.Sprintf("%s%s", FormatSize(w.bytesWritten), totalPerc)
+	right := fmt.Sprintf("%s/s", FormatSize(int64(math.Max(float64(w.bytesWritten-w.lastBytesWritten), 0)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
+	middleWidth := width - len(left) - len(right)
 	var middle string
 	if hasTotalPerc {
-		space := width - len(left) - len(right) - len(leftBracket) - len(rightBracket)
-		activeSpace := int(float64(space) * perc)
-		bars := make([]byte, space)
+		barsWidth := middleWidth - len(leftBracket) - len(rightBracket)
+		complete := int(float64(barsWidth) * perc)
+		bars := make([]byte, barsWidth)
 		for i := range bars {
-			if i < activeSpace {
+			if i < complete {
 				bars[i] = completeByte
-			} else if i != 0 && i == activeSpace {
+			} else if i != 0 && i == complete {
 				bars[i] = arrowByte
 			} else {
 				bars[i] = incompleteByte
@@ -217,7 +217,7 @@ func (w *ProgressWriter) print(last bool) {
 		}
 		middle = fmt.Sprintf("%s%s%s", leftBracket, bars, rightBracket)
 	}
-	middle = fmt.Sprintf(fmt.Sprintf("%%%ds", width-len(left)-len(middle)-len(right)), middle)
+	middle = fmt.Sprintf(fmt.Sprintf("%%%ds", middleWidth-len(middle)), middle)
 	var newline string
 	if last {
 		newline = "\n"
