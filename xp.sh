@@ -2,8 +2,8 @@
 
 set -e
 
-pkg=github.com/jamesliu96/geheim/cmd/ghm
-app=ghm
+pkg=github.com/jamesliu96/geheim/cmd/xp
+app=xp
 tag=$(git describe --tags --always)
 rev=$(git rev-list -1 HEAD)
 ldflags="-X main.gitTag=$tag -X main.gitRev=$rev"
