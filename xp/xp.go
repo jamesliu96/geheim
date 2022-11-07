@@ -1,4 +1,4 @@
-package geheim
+package xp
 
 import (
 	"crypto/rand"

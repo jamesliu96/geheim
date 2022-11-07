@@ -46,16 +46,17 @@ var (
 	fSL = flag.Int("e", geheim.DefaultSec,
 		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
 	)
-	fIn        = flag.String("i", os.Stdin.Name(), "input `path`")
-	fOut       = flag.String("o", os.Stdout.Name(), "output `path`")
-	fSign      = flag.String("s", "", "signature `path`")
-	fSignHex   = flag.String("x", "", "[dec] signature `hex`")
-	fPass      = flag.String("p", "", "`passcode`")
-	fOverwrite = flag.Bool("f", false, "allow overwrite to existing destination")
-	fVerbose   = flag.Bool("v", false, "verbose")
-	fProgress  = flag.Bool("P", false, "show progress")
-	fVersion   = flag.Bool("V", false, "print version")
-	fDry       = flag.Bool("j", false, "dry run")
+	fIn           = flag.String("i", os.Stdin.Name(), "input `path`")
+	fOut          = flag.String("o", os.Stdout.Name(), "output `path`")
+	fSign         = flag.String("s", "", "signature `path`")
+	fSignHex      = flag.String("x", "", "[dec] signature `hex`")
+	fPass         = flag.String("p", "", "`passcode`")
+	fOverwrite    = flag.Bool("f", false, "allow overwrite to existing destination")
+	fVerbose      = flag.Bool("v", false, "verbose")
+	fProgress     = flag.Bool("P", false, "show progress")
+	fVersion      = flag.Bool("V", false, "print version")
+	fPrintSignHex = flag.Bool("X", false, "print signature hex")
+	fDry          = flag.Bool("j", false, "dry run")
 )
 
 var flags = map[string]bool{}
@@ -282,7 +283,7 @@ func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	if err != nil {
 		return
 	}
-	if *fVerbose {
+	if *fVerbose || *fPrintSignHex {
 		printf("%-8s%x\n", "SIGNED", signed)
 	}
 	if sign != nil {
@@ -293,13 +294,13 @@ func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 
 func dec(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	var signex []byte
-	if sign != nil {
-		signex, err = io.ReadAll(sign)
+	if flags["x"] {
+		signex, err = hex.DecodeString(*fSignHex)
 		if err != nil {
 			return
 		}
-	} else if flags["x"] {
-		signex, err = hex.DecodeString(*fSignHex)
+	} else if sign != nil {
+		signex, err = io.ReadAll(sign)
 		if err != nil {
 			return
 		}
@@ -315,7 +316,7 @@ func dec(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
 	}
-	if *fVerbose {
+	if *fVerbose || *fPrintSignHex {
 		printf("%-8s%x\n", "SIGNED", signed)
 	}
 	return

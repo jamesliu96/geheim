@@ -6,7 +6,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/jamesliu96/geheim"
+	"github.com/jamesliu96/geheim/xp"
 )
 
 const app = "xp"
@@ -30,7 +30,7 @@ func main() {
 	}
 	directive := os.Args[1]
 	if directive == p {
-		priv, pub, err := geheim.P()
+		priv, pub, err := xp.P()
 		if err != nil {
 			panic(err)
 		}
@@ -50,7 +50,7 @@ func main() {
 				panic(err)
 			}
 		}
-		product, err := geheim.X(scalar, point)
+		product, err := xp.X(scalar, point)
 		if err != nil {
 			panic(err)
 		}

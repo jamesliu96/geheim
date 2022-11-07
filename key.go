@@ -32,7 +32,7 @@ func GetKDFString() string {
 }
 
 const (
-	MinSec = 1
+	MinSec = 0
 	MaxSec = 20
 )
 
