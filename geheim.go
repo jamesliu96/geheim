@@ -96,26 +96,6 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 	}
 	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
-	if header.Legacy() {
-		key, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher])
-		if err != nil {
-			return nil, err
-		}
-		stream, cipher, err := newCipherStream(cipher, key, iv, sm)
-		if err != nil {
-			return nil, err
-		}
-		mw, mac := getMAC(mac, mdfn, key)
-		if printFn != nil {
-			if err := printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, key, nil); err != nil {
-				return nil, err
-			}
-		}
-		if _, err := io.Copy(io.MultiWriter(bw, mw), newCipherStreamReader(stream, br)); err != nil {
-			return nil, err
-		}
-		return mw.Sum(nil), nil
-	}
 	keyCipher, keyMAC, kdf, sec, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
 	if err != nil {
 		return
