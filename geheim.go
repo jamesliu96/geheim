@@ -115,26 +115,27 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 			return nil, err
 		}
 		return mw.Sum(nil), nil
-	} else {
-		keyCipher, keyMAC, kdf, sec, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
-		if err != nil {
-			return nil, err
-		}
-		stream, cipher, err := newCipherStream(cipher, keyCipher, iv, sm)
-		if err != nil {
-			return nil, err
-		}
-		mw, mac := getMAC(mac, mdfn, keyMAC)
-		if printFn != nil {
-			if err := printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC); err != nil {
-				return nil, err
-			}
-		}
-		if _, err = io.Copy(bw, newCipherStreamReader(stream, io.TeeReader(br, mw))); err != nil {
-			return nil, err
-		}
-		return mw.Sum(nil), nil
 	}
+	keyCipher, keyMAC, kdf, sec, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+	if err != nil {
+		return
+	}
+	stream, cipher, err := newCipherStream(cipher, keyCipher, iv, sm)
+	if err != nil {
+		return
+	}
+	mw, mac := getMAC(mac, mdfn, keyMAC)
+	if printFn != nil {
+		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC)
+		if err != nil {
+			return
+		}
+	}
+	if _, err = io.Copy(bw, newCipherStreamReader(stream, io.TeeReader(br, mw))); err != nil {
+		return
+	}
+	sign = mw.Sum(nil)
+	return
 }
 
 var ErrSigVer = errors.New("signature verification failed")
