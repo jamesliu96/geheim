@@ -134,8 +134,7 @@ func checkTerminal(fds ...uintptr) error {
 
 func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, err error) {
 	if inset {
-		in, err = os.Open(*fIn)
-		if err != nil {
+		if in, err = os.Open(*fIn); err != nil {
 			return
 		}
 		if fi, e := in.Stat(); e != nil {
@@ -158,8 +157,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 				return
 			}
 		}
-		out, err = os.Create(*fOut)
-		if err != nil {
+		if out, err = os.Create(*fOut); err != nil {
 			return
 		}
 	} else {
@@ -172,8 +170,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 	fds := []uintptr{in.Fd(), out.Fd()}
 	if signset {
 		if *fDecrypt {
-			sign, err = os.Open(*fSign)
-			if err != nil {
+			if sign, err = os.Open(*fSign); err != nil {
 				return
 			}
 			if fi, e := sign.Stat(); e != nil {
@@ -190,8 +187,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 					return
 				}
 			}
-			sign, err = os.Create(*fSign)
-			if err != nil {
+			if sign, err = os.Create(*fSign); err != nil {
 				return
 			}
 		}
@@ -266,9 +262,9 @@ func doneProgress(done chan<- struct{}) {
 
 var defaultPrintFunc = geheim.NewPrintFunc(os.Stderr)
 
-var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, key []byte) error {
+var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error {
 	if *fVerbose {
-		defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, key)
+		defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC)
 	}
 	if *fDry {
 		return errDry
@@ -295,13 +291,11 @@ func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 func dec(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	var signex []byte
 	if flags["x"] {
-		signex, err = hex.DecodeString(*fSignHex)
-		if err != nil {
+		if signex, err = hex.DecodeString(*fSignHex); err != nil {
 			return
 		}
 	} else if sign != nil {
-		signex, err = io.ReadAll(sign)
-		if err != nil {
+		if signex, err = io.ReadAll(sign); err != nil {
 			return
 		}
 	}

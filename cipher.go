@@ -3,7 +3,6 @@ package geheim
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"errors"
 	"io"
 
 	"golang.org/x/crypto/chacha20"
@@ -12,26 +11,26 @@ import (
 type Cipher uint8
 
 const (
-	AES Cipher = 1 + iota
-	Chacha20
+	AES_256 Cipher = 1 + iota
+	ChaCha20
 )
 
 var CipherNames = map[Cipher]string{
-	AES:      "AES",
-	Chacha20: "Chacha20",
+	AES_256:  "AES-256",
+	ChaCha20: "ChaCha20",
 }
 
 var ivSizes = map[Cipher]int{
-	AES:      aes.BlockSize,
-	Chacha20: chacha20.NonceSize,
+	AES_256:  aes.BlockSize,
+	ChaCha20: chacha20.NonceSize,
 }
 
-var keySizes = map[Cipher]int{
-	AES:      32,
-	Chacha20: chacha20.KeySize,
+var keySizesCipher = map[Cipher]int{
+	AES_256:  32,
+	ChaCha20: chacha20.KeySize,
 }
 
-var ciphers = [...]Cipher{AES, Chacha20}
+var ciphers = [...]Cipher{AES_256, ChaCha20}
 
 func GetCipherString() string {
 	return getString(ciphers[:], CipherNames)
@@ -57,7 +56,9 @@ func GetModeString() string {
 	return getString(modes[:], ModeNames)
 }
 
-func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.Stream, Mode) {
+type StreamMode func(cipher.Block, []byte) cipher.Stream
+
+func getStreamMode(mode Mode, decrypt bool) (StreamMode, Mode) {
 	switch mode {
 	case CTR:
 		return cipher.NewCTR, CTR
@@ -73,39 +74,31 @@ func getStreamMode(mode Mode, decrypt bool) (func(cipher.Block, []byte) cipher.S
 	return getStreamMode(DefaultMode, decrypt)
 }
 
-func checkKeySize(cipher Cipher, key []byte) error {
-	expected := keySizes[cipher]
-	if expected != len(key) {
-		return errors.New("invalid key size")
-	}
-	return nil
+func checkKeySizeCipher(cipher Cipher, key []byte) error {
+	return checkBytesSize(keySizesCipher, cipher, key, "cipher key")
 }
 
 func checkIVSize(cipher Cipher, iv []byte) error {
-	expected := ivSizes[cipher]
-	if expected != len(iv) {
-		return errors.New("invalid nonce size")
-	}
-	return nil
+	return checkBytesSize(ivSizes, cipher, iv, "nonce")
 }
 
-func newCipherStream(cipher Cipher, key []byte, iv []byte, sm func(cipher.Block, []byte) cipher.Stream) (cipher.Stream, Cipher, error) {
-	if err := checkKeySize(cipher, key); err != nil {
+func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (cipher.Stream, Cipher, error) {
+	if err := checkKeySizeCipher(cipher, key); err != nil {
 		return nil, cipher, err
 	}
 	if err := checkIVSize(cipher, iv); err != nil {
 		return nil, cipher, err
 	}
 	switch cipher {
-	case AES:
+	case AES_256:
 		block, err := aes.NewCipher(key)
 		if err != nil {
-			return nil, AES, err
+			return nil, AES_256, err
 		}
-		return sm(block, iv), AES, nil
-	case Chacha20:
+		return sm(block, iv), AES_256, nil
+	case ChaCha20:
 		stream, err := chacha20.NewUnauthenticatedCipher(key, iv)
-		return stream, Chacha20, err
+		return stream, ChaCha20, err
 	}
 	return newCipherStream(DefaultCipher, key, iv, sm)
 }

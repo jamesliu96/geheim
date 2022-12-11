@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DefaultCipher = AES
+	DefaultCipher = AES_256
 	DefaultMode   = CTR
 	DefaultKDF    = Argon2
 	DefaultMAC    = HMAC
@@ -20,35 +20,32 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	br := bufio.NewReader(r)
 	bw := bufio.NewWriter(w)
 	defer (func() {
-		if err == nil {
-			err = bw.Flush()
+		if e := bw.Flush(); err == nil {
+			err = e
 		}
 	})()
 	salt := make([]byte, saltSize)
-	err = randRead(salt)
-	if err != nil {
+	if err = randRead(salt); err != nil {
 		return
 	}
 	iv := make([]byte, ivSizes[cipher])
-	err = randRead(iv)
-	if err != nil {
+	if err = randRead(iv); err != nil {
 		return
 	}
-	err = Validate(cipher, mode, kdf, mac, md, sec)
-	if err != nil {
+	if err = Validate(cipher, mode, kdf, mac, md, sec); err != nil {
 		return
 	}
 	sm, mode := getStreamMode(mode, false)
 	mdfn, md := getMD(md)
-	dk, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
+	keyCipher, keyMAC, kdf, sec, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
 	if err != nil {
 		return
 	}
-	s, cipher, err := newCipherStream(cipher, dk, iv, sm)
+	stream, cipher, err := newCipherStream(cipher, keyCipher, iv, sm)
 	if err != nil {
 		return
 	}
-	h, mac := getMAC(mac, mdfn, dk)
+	mw, mac := getMAC(mac, mdfn, keyMAC)
 	meta := NewMeta(HeaderVersion)
 	header, err := meta.Header()
 	if err != nil {
@@ -56,24 +53,21 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	}
 	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, dk)
+		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
 	}
-	err = meta.Write(bw)
-	if err != nil {
+	if err = meta.Write(bw); err != nil {
 		return
 	}
-	err = header.Write(bw)
-	if err != nil {
+	if err = header.Write(bw); err != nil {
 		return
 	}
-	_, err = io.Copy(io.MultiWriter(newCipherStreamWriter(s, bw), h), br)
-	if err != nil {
+	if _, err = io.Copy(newCipherStreamWriter(stream, io.MultiWriter(bw, mw)), br); err != nil {
 		return
 	}
-	sign = h.Sum(nil)
+	sign = mw.Sum(nil)
 	return
 }
 
@@ -81,58 +75,72 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 	br := bufio.NewReader(r)
 	bw := bufio.NewWriter(w)
 	defer (func() {
-		if err == nil {
-			err = bw.Flush()
+		if e := bw.Flush(); err == nil {
+			err = e
 		}
 	})()
 	meta := &Meta{}
-	err = meta.Read(br)
-	if err != nil {
+	if err = meta.Read(br); err != nil {
 		return
 	}
 	header, err := meta.Header()
 	if err != nil {
 		return
 	}
-	err = header.Read(br)
-	if err != nil {
+	if err = header.Read(br); err != nil {
 		return
 	}
 	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
-	err = Validate(cipher, mode, kdf, mac, md, sec)
-	if err != nil {
+	if err = Validate(cipher, mode, kdf, mac, md, sec); err != nil {
 		return
 	}
 	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
-	dk, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizes[cipher])
-	if err != nil {
-		return
-	}
-	s, cipher, err := newCipherStream(cipher, dk, iv, sm)
-	if err != nil {
-		return
-	}
-	h, mac := getMAC(mac, mdfn, dk)
-	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, dk)
+	if meta.Legacy() {
+		key, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher])
 		if err != nil {
-			return
+			return nil, err
 		}
+		stream, cipher, err := newCipherStream(cipher, key, iv, sm)
+		if err != nil {
+			return nil, err
+		}
+		mw, mac := getMAC(mac, mdfn, key)
+		if printFn != nil {
+			if err := printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, key, nil); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := io.Copy(io.MultiWriter(bw, mw), newCipherStreamReader(stream, br)); err != nil {
+			return nil, err
+		}
+		return mw.Sum(nil), nil
+	} else {
+		keyCipher, keyMAC, kdf, sec, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+		if err != nil {
+			return nil, err
+		}
+		stream, cipher, err := newCipherStream(cipher, keyCipher, iv, sm)
+		if err != nil {
+			return nil, err
+		}
+		mw, mac := getMAC(mac, mdfn, keyMAC)
+		if printFn != nil {
+			if err := printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC); err != nil {
+				return nil, err
+			}
+		}
+		if _, err = io.Copy(bw, newCipherStreamReader(stream, io.TeeReader(br, mw))); err != nil {
+			return nil, err
+		}
+		return mw.Sum(nil), nil
 	}
-	_, err = io.Copy(io.MultiWriter(bw, h), newCipherStreamReader(s, br))
-	if err != nil {
-		return
-	}
-	sign = h.Sum(nil)
-	return
 }
 
 var ErrSigVer = errors.New("signature verification failed")
 
 func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFn PrintFunc) (sign []byte, err error) {
-	sign, err = Decrypt(r, w, pass, printFn)
-	if err != nil {
+	if sign, err = Decrypt(r, w, pass, printFn); err != nil {
 		return
 	}
 	if signex != nil {

@@ -2,6 +2,7 @@ package geheim
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math"
@@ -21,7 +22,7 @@ const (
 	SecDesc    = "security level"
 )
 
-type PrintFunc func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, key []byte) error
+type PrintFunc func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error
 
 func Validate(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) (err error) {
 	err = fmt.Errorf("invalid %s (%s)", CipherDesc, GetCipherString())
@@ -110,11 +111,12 @@ func FormatSize(n int64) string {
 }
 
 func NewPrintFunc(w io.Writer) PrintFunc {
-	return func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, key []byte) error {
+	return func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error {
 		fmt.Fprintf(w, "%-8s%d\n", "VERSION", version)
-		fmt.Fprintf(w, "%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
-		if cipher == AES {
-			fmt.Fprintf(w, "%-8s%s(%d)\n", "MODE", ModeNames[mode], mode)
+		if cipher == AES_256 {
+			fmt.Fprintf(w, "%-8s%s-%s(%d,%d)\n", "CIPHER", CipherNames[cipher], ModeNames[mode], cipher, mode)
+		} else {
+			fmt.Fprintf(w, "%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
 		}
 		fmt.Fprintf(w, "%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
 		fmt.Fprintf(w, "%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
@@ -129,23 +131,33 @@ func NewPrintFunc(w io.Writer) PrintFunc {
 		}
 		fmt.Fprintf(w, "%-8s%s(%x)\n", "PASS", pass, pass)
 		fmt.Fprintf(w, "%-8s%x\n", "SALT", salt)
-		fmt.Fprintf(w, "%-8s%x\n", "IV", iv)
-		fmt.Fprintf(w, "%-8s%x\n", "KEY", key)
+		fmt.Fprintf(w, "%-8s%x\n", "NONCE", iv)
+		fmt.Fprintf(w, "%-8s%x\n", "KEY", keyCipher)
+		if keyMAC != nil {
+			fmt.Fprintf(w, "%-8s%x\n", "MACKEY", keyCipher)
+		}
 		return nil
 	}
 }
 
 func randRead(buf []byte) (err error) {
-	_, err = rand.Read(buf)
+	_, err = io.ReadFull(rand.Reader, buf)
 	return
 }
 
-func getString[T comparable](list []T, names map[T]string) string {
-	d := make([]string, len(list))
-	for i, item := range list {
+func getString[T comparable](values []T, names map[T]string) string {
+	d := make([]string, len(values))
+	for i, item := range values {
 		d[i] = fmt.Sprintf("%v:%s", item, names[item])
 	}
 	return strings.Join(d, ", ")
+}
+
+func checkBytesSize[T comparable](sizes map[T]int, key T, value []byte, name string) error {
+	if sizes[key] != len(value) {
+		return fmt.Errorf("invalid %s size", name)
+	}
+	return nil
 }
 
 type ProgressWriter struct {
@@ -223,4 +235,12 @@ func (w *ProgressWriter) print(last bool) {
 		newline = "\n"
 	}
 	fmt.Fprintf(os.Stderr, "\r%s%s%s%s", left, middle, right, newline)
+}
+
+func readBE(r io.Reader, v any) error {
+	return binary.Read(r, binary.BigEndian, v)
+}
+
+func writeBE(w io.Writer, v any) error {
+	return binary.Write(w, binary.BigEndian, v)
 }
