@@ -96,7 +96,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 	}
 	sm, mode := getStreamMode(mode, true)
 	mdfn, md := getMD(md)
-	if meta.Legacy() {
+	if header.Legacy() {
 		key, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher])
 		if err != nil {
 			return nil, err

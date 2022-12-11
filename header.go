@@ -13,6 +13,7 @@ type Header interface {
 	Write(io.Writer) error
 	Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
 	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
+	Legacy() bool
 }
 
 const padding uint32 = 0x47484dff
@@ -62,10 +63,6 @@ func (m *Meta) Write(w io.Writer) error {
 
 func (m *Meta) Header() (Header, error) {
 	return getHeader(m.Version)
-}
-
-func (m *Meta) Legacy() bool {
-	return m.Version < headerVer7
 }
 
 func (m *Meta) checkPadding() error {
@@ -121,6 +118,10 @@ func (v *headerV5) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec in
 	v.IVSize = uint8(copy(v.IV[:], iv))
 }
 
+func (v *headerV5) Legacy() bool {
+	return true
+}
+
 type headerV6 struct {
 	Cipher, Mode, KDF, MAC    uint8
 	MD, Sec, SaltSize, IVSize uint8
@@ -163,4 +164,52 @@ func (v *headerV6) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec in
 	v.IVSize = uint8(copy(v.IV[:], iv))
 }
 
-type headerV7 = headerV6
+func (v *headerV6) Legacy() bool {
+	return true
+}
+
+type headerV7 struct {
+	Cipher, Mode, KDF, MAC    uint8
+	MD, Sec, SaltSize, IVSize uint8
+	Salt                      [32]byte
+	IV                        [16]byte
+}
+
+func (v *headerV7) Version() int {
+	return int(headerVer7)
+}
+
+func (v *headerV7) Read(r io.Reader) error {
+	return readBE(r, v)
+}
+
+func (v *headerV7) Write(w io.Writer) error {
+	return writeBE(w, v)
+}
+
+func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+	cipher = Cipher(v.Cipher)
+	mode = Mode(v.Mode)
+	kdf = KDF(v.KDF)
+	mac = MAC(v.MAC)
+	md = MD(v.MD)
+	sec = int(v.Sec)
+	salt = v.Salt[:int(math.Min(float64(v.SaltSize), float64(len(v.Salt))))]
+	iv = v.IV[:int(math.Min(float64(v.IVSize), float64(len(v.IV))))]
+	return
+}
+
+func (v *headerV7) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+	v.Cipher = uint8(cipher)
+	v.Mode = uint8(mode)
+	v.KDF = uint8(kdf)
+	v.MAC = uint8(mac)
+	v.MD = uint8(md)
+	v.Sec = uint8(sec)
+	v.SaltSize = uint8(copy(v.Salt[:], salt))
+	v.IVSize = uint8(copy(v.IV[:], iv))
+}
+
+func (v *headerV7) Legacy() bool {
+	return false
+}

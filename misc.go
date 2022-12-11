@@ -134,7 +134,7 @@ func NewPrintFunc(w io.Writer) PrintFunc {
 		fmt.Fprintf(w, "%-8s%x\n", "NONCE", iv)
 		fmt.Fprintf(w, "%-8s%x\n", "KEY", keyCipher)
 		if keyMAC != nil {
-			fmt.Fprintf(w, "%-8s%x\n", "MACKEY", keyCipher)
+			fmt.Fprintf(w, "%-8s%x\n", "MACKEY", keyMAC)
 		}
 		return nil
 	}
