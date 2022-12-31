@@ -29,7 +29,7 @@ func checkKeySizeMAC(mac MAC, key []byte) error {
 	return checkBytesSize(keySizesMAC, mac, key, "mac key")
 }
 
-func getMAC(mac MAC, mdfn func() hash.Hash, key []byte) (hash.Hash, MAC) {
+func getMAC(mac MAC, mdfn MDFunc, key []byte) (hash.Hash, MAC) {
 	if err := checkKeySizeMAC(mac, key); err != nil {
 		return nil, mac
 	}

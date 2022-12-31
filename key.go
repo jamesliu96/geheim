@@ -1,7 +1,6 @@
 package geheim
 
 import (
-	"hash"
 	"math"
 
 	"golang.org/x/crypto/argon2"
@@ -43,7 +42,7 @@ func GetSecIterMemory(sec int) (int, int64, int) {
 	return iter, memory, sec
 }
 
-func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size int) ([]byte, KDF, int, error) {
+func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, size int) ([]byte, KDF, int, error) {
 	iter, memory, sec := GetSecIterMemory(sec)
 	switch kdf {
 	case PBKDF2:
@@ -58,7 +57,7 @@ func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, size 
 	return deriveKey(DefaultKDF, pass, salt, sec, mdfn, size)
 }
 
-func deriveKeys(kdf KDF, pass, salt []byte, sec int, mdfn func() hash.Hash, sizeCipher, sizeMAC int) ([]byte, []byte, KDF, int, error) {
+func deriveKeys(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, sizeCipher, sizeMAC int) ([]byte, []byte, KDF, int, error) {
 	key, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, sizeCipher+sizeMAC)
 	if err != nil {
 		return nil, nil, kdf, sec, err

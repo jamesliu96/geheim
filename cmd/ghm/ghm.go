@@ -343,13 +343,13 @@ func main() {
 	if check(err) {
 		return
 	}
-	defer (func() {
+	defer func() {
 		errs := []error{in.Close(), out.Close()}
 		if sign != nil {
 			errs = append(errs, sign.Close())
 		}
 		check(errs...)
-	})()
+	}()
 	pass, err := getPass(flags["p"])
 	if check(err) {
 		return

@@ -49,7 +49,7 @@ func GetMDString() string {
 	return getString(mds[:], MDNames)
 }
 
-func getMD(md MD) (func() hash.Hash, MD) {
+func getMD(md MD) (MDFunc, MD) {
 	switch md {
 	case SHA3_224:
 		return sha3.New224, SHA3_224
@@ -72,20 +72,20 @@ func getMD(md MD) (func() hash.Hash, MD) {
 	case SHA_512_256:
 		return sha512.New512_256, SHA_512_256
 	case BLAKE2b_256:
-		return (func() hash.Hash {
+		return func() hash.Hash {
 			h, _ := blake2b.New256(nil)
 			return h
-		}), BLAKE2b_256
+		}, BLAKE2b_256
 	case BLAKE2b_384:
-		return (func() hash.Hash {
+		return func() hash.Hash {
 			h, _ := blake2b.New384(nil)
 			return h
-		}), BLAKE2b_384
+		}, BLAKE2b_384
 	case BLAKE2b_512:
-		return (func() hash.Hash {
+		return func() hash.Hash {
 			h, _ := blake2b.New512(nil)
 			return h
-		}), BLAKE2b_512
+		}, BLAKE2b_512
 	}
 	return getMD(DefaultMD)
 }

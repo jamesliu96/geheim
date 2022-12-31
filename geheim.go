@@ -19,11 +19,11 @@ const (
 func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
 	br := bufio.NewReader(r)
 	bw := bufio.NewWriter(w)
-	defer (func() {
+	defer func() {
 		if e := bw.Flush(); err == nil {
 			err = e
 		}
-	})()
+	}()
 	salt := make([]byte, saltSize)
 	if err = randRead(salt); err != nil {
 		return
@@ -74,11 +74,11 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []byte, err error) {
 	br := bufio.NewReader(r)
 	bw := bufio.NewWriter(w)
-	defer (func() {
+	defer func() {
 		if e := bw.Flush(); err == nil {
 			err = e
 		}
-	})()
+	}()
 	meta := &Meta{}
 	if err = meta.Read(br); err != nil {
 		return
