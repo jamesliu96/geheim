@@ -11,8 +11,8 @@ type Header interface {
 	Version() int
 	Read(io.Reader) error
 	Write(io.Writer) error
-	Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
-	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
+	Get() (Cipher, Mode, KDF, MAC, MD, int, []byte, []byte)
+	Set(Cipher, Mode, KDF, MAC, MD, int, []byte, []byte)
 }
 
 const padding uint32 = 0x47484dff
@@ -90,7 +90,7 @@ func (v *headerV7) Write(w io.Writer) error {
 	return writeBE(w, v)
 }
 
-func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) {
 	cipher = Cipher(v.Cipher)
 	mode = Mode(v.Mode)
 	kdf = KDF(v.KDF)
@@ -102,7 +102,7 @@ func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec
 	return
 }
 
-func (v *headerV7) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt []byte, iv []byte) {
+func (v *headerV7) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) {
 	v.Cipher = uint8(cipher)
 	v.Mode = uint8(mode)
 	v.KDF = uint8(kdf)

@@ -260,16 +260,18 @@ func doneProgress(done chan<- struct{}) {
 	}
 }
 
-var defaultPrintFunc = geheim.NewPrintFunc(os.Stderr)
+var defaultPrintFunc = geheim.NewDefaultPrintFunc(os.Stderr)
 
-var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error {
-	if *fVerbose {
-		defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC)
-	}
+var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) (err error) {
 	if *fDry {
-		return errDry
+		err = errDry
 	}
-	return nil
+	if *fVerbose {
+		if e := defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC); err != nil {
+			err = e
+		}
+	}
+	return
 }
 
 func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {

@@ -23,7 +23,7 @@ const (
 	SecDesc    = "security level"
 )
 
-type PrintFunc func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error
+type PrintFunc func(int, Cipher, Mode, KDF, MAC, MD, int, []byte, []byte, []byte, []byte, []byte) error
 
 type MDFunc func() hash.Hash
 
@@ -113,7 +113,7 @@ func FormatSize(n int64) string {
 	return fmt.Sprintf("%s%sB", fmt.Sprintf(f, math.Max(0, nn)), unit)
 }
 
-func NewPrintFunc(w io.Writer) PrintFunc {
+func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	return func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error {
 		fmt.Fprintf(w, "%-8s%d\n", "VERSION", version)
 		if cipher == AES_256 {
