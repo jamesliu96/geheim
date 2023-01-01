@@ -1,14 +1,10 @@
 package geheim
 
 import (
-	"math"
-
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
 )
-
-const saltSize = 32
 
 type KDF uint8
 
@@ -24,43 +20,51 @@ var KDFNames = map[KDF]string{
 	Scrypt: "Scrypt",
 }
 
+var saltSizes = map[KDF]int{
+	PBKDF2: 32,
+	Argon2: 32,
+	Scrypt: 32,
+}
+
 var kdfs = [...]KDF{PBKDF2, Argon2, Scrypt}
 
-func GetKDFString() string {
-	return getString(kdfs[:], KDFNames)
-}
+var KDFString = getOptionString(kdfs[:], KDFNames)
 
 const (
 	MinSec = 0
 	MaxSec = 20
 )
 
-func GetSecIterMemory(sec int) (int, int64, int) {
-	sec = int(math.Min(MaxSec, math.Max(MinSec, float64(sec))))
-	iter := 1e6 * sec
-	memory := int64(1 << (20 + sec))
-	return iter, memory, sec
+func GetSecIterMemory(sec int) (iter int, memory uint64) {
+	iter = 1e6 * sec
+	memory = uint64(1 << (20 + sec))
+	return
 }
 
-func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, size int) ([]byte, KDF, int, error) {
-	iter, memory, sec := GetSecIterMemory(sec)
+func checkSaltSize(kdf KDF, salt []byte) error {
+	return checkBytesSize(saltSizes, kdf, salt, "salt")
+}
+
+func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, size int) ([]byte, error) {
+	if err := checkSaltSize(kdf, salt); err != nil {
+		return nil, err
+	}
+	iter, memory := GetSecIterMemory(sec)
 	switch kdf {
 	case PBKDF2:
-		return pbkdf2.Key(pass, salt, iter, size, mdfn), PBKDF2, sec, nil
+		return pbkdf2.Key(pass, salt, iter, size, mdfn), nil
 	case Argon2:
-		return argon2.IDKey(pass, salt, 1, uint32(memory/1024), 128, uint32(size)), Argon2, sec, nil
+		return argon2.IDKey(pass, salt, 1, uint32(memory/1024), 128, uint32(size)), nil
 	case Scrypt:
 		const r, p = 8, 1
 		key, err := scrypt.Key(pass, salt, int(memory/128/r/p), r, p, size)
-		return key, Scrypt, sec, err
+		return key, err
 	}
-	return deriveKey(DefaultKDF, pass, salt, sec, mdfn, size)
+	return nil, ErrInvKDF
 }
 
-func deriveKeys(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, sizeCipher, sizeMAC int) ([]byte, []byte, KDF, int, error) {
-	key, kdf, sec, err := deriveKey(kdf, pass, salt, sec, mdfn, sizeCipher+sizeMAC)
-	if err != nil {
-		return nil, nil, kdf, sec, err
-	}
-	return key[:sizeCipher], key[sizeCipher : sizeCipher+sizeMAC], kdf, sec, err
+func deriveKeys(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, sizeCipher, sizeMAC int) (keyCipher, keyMAC []byte, err error) {
+	key, err := deriveKey(kdf, pass, salt, sec, mdfn, sizeCipher+sizeMAC)
+	keyCipher, keyMAC = key[:sizeCipher], key[sizeCipher:sizeCipher+sizeMAC]
+	return
 }

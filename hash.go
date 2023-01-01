@@ -45,47 +45,45 @@ var MDNames = map[MD]string{
 
 var mds = [...]MD{SHA3_224, SHA3_256, SHA3_384, SHA3_512, SHA_224, SHA_256, SHA_384, SHA_512, SHA_512_224, SHA_512_256, BLAKE2b_256, BLAKE2b_384, BLAKE2b_512}
 
-func GetMDString() string {
-	return getString(mds[:], MDNames)
-}
+var MDString = getOptionString(mds[:], MDNames)
 
-func getMD(md MD) (MDFunc, MD) {
+func getMD(md MD) (MDFunc, error) {
 	switch md {
 	case SHA3_224:
-		return sha3.New224, SHA3_224
+		return sha3.New224, nil
 	case SHA3_256:
-		return sha3.New256, SHA3_256
+		return sha3.New256, nil
 	case SHA3_384:
-		return sha3.New384, SHA3_384
+		return sha3.New384, nil
 	case SHA3_512:
-		return sha3.New512, SHA3_512
+		return sha3.New512, nil
 	case SHA_224:
-		return sha256.New224, SHA_224
+		return sha256.New224, nil
 	case SHA_256:
-		return sha256.New, SHA_256
+		return sha256.New, nil
 	case SHA_384:
-		return sha512.New384, SHA_384
+		return sha512.New384, nil
 	case SHA_512:
-		return sha512.New, SHA_512
+		return sha512.New, nil
 	case SHA_512_224:
-		return sha512.New512_224, SHA_512_224
+		return sha512.New512_224, nil
 	case SHA_512_256:
-		return sha512.New512_256, SHA_512_256
+		return sha512.New512_256, nil
 	case BLAKE2b_256:
 		return func() hash.Hash {
 			h, _ := blake2b.New256(nil)
 			return h
-		}, BLAKE2b_256
+		}, nil
 	case BLAKE2b_384:
 		return func() hash.Hash {
 			h, _ := blake2b.New384(nil)
 			return h
-		}, BLAKE2b_384
+		}, nil
 	case BLAKE2b_512:
 		return func() hash.Hash {
 			h, _ := blake2b.New512(nil)
 			return h
-		}, BLAKE2b_512
+		}, nil
 	}
-	return getMD(DefaultMD)
+	return nil, ErrInvMD
 }

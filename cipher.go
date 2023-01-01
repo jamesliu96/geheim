@@ -32,9 +32,7 @@ var keySizesCipher = map[Cipher]int{
 
 var ciphers = [...]Cipher{AES_256, ChaCha20}
 
-func GetCipherString() string {
-	return getString(ciphers[:], CipherNames)
-}
+var CipherString = getOptionString(ciphers[:], CipherNames)
 
 type Mode uint8
 
@@ -52,26 +50,24 @@ var ModeNames = map[Mode]string{
 
 var modes = [...]Mode{CTR, CFB, OFB}
 
-func GetModeString() string {
-	return getString(modes[:], ModeNames)
-}
+var ModeString = getOptionString(modes[:], ModeNames)
 
 type StreamMode func(cipher.Block, []byte) cipher.Stream
 
-func getStreamMode(mode Mode, decrypt bool) (StreamMode, Mode) {
+func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	switch mode {
 	case CTR:
-		return cipher.NewCTR, CTR
+		return cipher.NewCTR, nil
 	case CFB:
 		if decrypt {
-			return cipher.NewCFBDecrypter, CFB
+			return cipher.NewCFBDecrypter, nil
 		} else {
-			return cipher.NewCFBEncrypter, CFB
+			return cipher.NewCFBEncrypter, nil
 		}
 	case OFB:
-		return cipher.NewOFB, OFB
+		return cipher.NewOFB, nil
 	}
-	return getStreamMode(DefaultMode, decrypt)
+	return nil, ErrInvMode
 }
 
 func checkKeySizeCipher(cipher Cipher, key []byte) error {
@@ -82,25 +78,25 @@ func checkIVSize(cipher Cipher, iv []byte) error {
 	return checkBytesSize(ivSizes, cipher, iv, "nonce")
 }
 
-func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (cipher.Stream, Cipher, error) {
+func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (cipher.Stream, error) {
 	if err := checkKeySizeCipher(cipher, key); err != nil {
-		return nil, cipher, err
+		return nil, err
 	}
 	if err := checkIVSize(cipher, iv); err != nil {
-		return nil, cipher, err
+		return nil, err
 	}
 	switch cipher {
 	case AES_256:
 		block, err := aes.NewCipher(key)
 		if err != nil {
-			return nil, AES_256, err
+			return nil, err
 		}
-		return sm(block, iv), AES_256, nil
+		return sm(block, iv), nil
 	case ChaCha20:
 		stream, err := chacha20.NewUnauthenticatedCipher(key, iv)
-		return stream, ChaCha20, err
+		return stream, err
 	}
-	return newCipherStream(DefaultCipher, key, iv, sm)
+	return nil, ErrInvCipher
 }
 
 func newCipherStreamReader(stream cipher.Stream, r io.Reader) io.Reader {

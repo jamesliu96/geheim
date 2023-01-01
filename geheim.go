@@ -3,7 +3,6 @@ package geheim
 import (
 	"bufio"
 	"crypto/hmac"
-	"errors"
 	"io"
 )
 
@@ -24,7 +23,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 			err = e
 		}
 	}()
-	salt := make([]byte, saltSize)
+	salt := make([]byte, saltSizes[kdf])
 	if err = randRead(salt); err != nil {
 		return
 	}
@@ -32,20 +31,29 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err = randRead(iv); err != nil {
 		return
 	}
-	if err = Validate(cipher, mode, kdf, mac, md, sec); err != nil {
+	if err = Validate(pass, cipher, mode, kdf, mac, md, sec); err != nil {
 		return
 	}
-	sm, mode := getStreamMode(mode, false)
-	mdfn, md := getMD(md)
-	keyCipher, keyMAC, kdf, sec, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+	sm, err := getStreamMode(mode, false)
 	if err != nil {
 		return
 	}
-	stream, cipher, err := newCipherStream(cipher, keyCipher, iv, sm)
+	mdfn, err := getMD(md)
 	if err != nil {
 		return
 	}
-	mw, mac := getMAC(mac, mdfn, keyMAC)
+	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+	if err != nil {
+		return
+	}
+	stream, err := newCipherStream(cipher, keyCipher, iv, sm)
+	if err != nil {
+		return
+	}
+	mw, err := getMAC(mac, mdfn, keyMAC)
+	if err != nil {
+		return
+	}
 	meta := NewMeta(HeaderVersion)
 	header, err := meta.Header()
 	if err != nil {
@@ -79,7 +87,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 			err = e
 		}
 	}()
-	meta := &Meta{}
+	meta := new(Meta)
 	if err = meta.Read(br); err != nil {
 		return
 	}
@@ -91,20 +99,29 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 		return
 	}
 	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
-	if err = Validate(cipher, mode, kdf, mac, md, sec); err != nil {
+	if err = Validate(pass, cipher, mode, kdf, mac, md, sec); err != nil {
 		return
 	}
-	sm, mode := getStreamMode(mode, true)
-	mdfn, md := getMD(md)
-	keyCipher, keyMAC, kdf, sec, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+	sm, err := getStreamMode(mode, true)
 	if err != nil {
 		return
 	}
-	stream, cipher, err := newCipherStream(cipher, keyCipher, iv, sm)
+	mdfn, err := getMD(md)
 	if err != nil {
 		return
 	}
-	mw, mac := getMAC(mac, mdfn, keyMAC)
+	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+	if err != nil {
+		return
+	}
+	stream, err := newCipherStream(cipher, keyCipher, iv, sm)
+	if err != nil {
+		return
+	}
+	mw, err := getMAC(mac, mdfn, keyMAC)
+	if err != nil {
+		return
+	}
 	if printFn != nil {
 		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC)
 		if err != nil {
@@ -117,8 +134,6 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 	sign = mw.Sum(nil)
 	return
 }
-
-var ErrSigVer = errors.New("signature verification failed")
 
 func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFn PrintFunc) (sign []byte, err error) {
 	if sign, err = Decrypt(r, w, pass, printFn); err != nil {

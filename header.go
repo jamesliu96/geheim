@@ -4,15 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 )
 
 type Header interface {
 	Version() int
 	Read(io.Reader) error
 	Write(io.Writer) error
-	Get() (Cipher, Mode, KDF, MAC, MD, int, []byte, []byte)
-	Set(Cipher, Mode, KDF, MAC, MD, int, []byte, []byte)
+	Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
+	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
 }
 
 const padding uint32 = 0x47484dff
@@ -97,8 +96,8 @@ func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec
 	mac = MAC(v.MAC)
 	md = MD(v.MD)
 	sec = int(v.Sec)
-	salt = v.Salt[:int(math.Min(float64(v.SaltSize), float64(len(v.Salt))))]
-	iv = v.IV[:int(math.Min(float64(v.IVSize), float64(len(v.IV))))]
+	salt = v.Salt[:v.SaltSize]
+	iv = v.IV[:v.IVSize]
 	return
 }
 

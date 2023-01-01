@@ -21,21 +21,19 @@ var keySizesMAC = map[MAC]int{
 
 var macs = [...]MAC{HMAC}
 
-func GetMACString() string {
-	return getString(macs[:], MACNames)
-}
+var MACString = getOptionString(macs[:], MACNames)
 
 func checkKeySizeMAC(mac MAC, key []byte) error {
 	return checkBytesSize(keySizesMAC, mac, key, "mac key")
 }
 
-func getMAC(mac MAC, mdfn MDFunc, key []byte) (hash.Hash, MAC) {
+func getMAC(mac MAC, mdfn MDFunc, key []byte) (hash.Hash, error) {
 	if err := checkKeySizeMAC(mac, key); err != nil {
-		return nil, mac
+		return nil, err
 	}
 	switch mac {
 	case HMAC:
-		return hmac.New(mdfn, key), HMAC
+		return hmac.New(mdfn, key), nil
 	}
-	return getMAC(DefaultMAC, mdfn, key)
+	return nil, ErrInvMAC
 }

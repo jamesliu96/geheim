@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"reflect"
 	"runtime"
@@ -29,19 +28,19 @@ var (
 var (
 	fDecrypt = flag.Bool("d", false, "decrypt")
 	fCipher  = flag.Int("c", int(geheim.DefaultCipher),
-		fmt.Sprintf("[enc] %s (%s)", geheim.CipherDesc, geheim.GetCipherString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.CipherDesc, geheim.CipherString),
 	)
 	fMode = flag.Int("m", int(geheim.DefaultMode),
-		fmt.Sprintf("[enc] %s (%s)", geheim.ModeDesc, geheim.GetModeString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.ModeDesc, geheim.ModeString),
 	)
 	fKDF = flag.Int("k", int(geheim.DefaultKDF),
-		fmt.Sprintf("[enc] %s (%s)", geheim.KDFDesc, geheim.GetKDFString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.KDFDesc, geheim.KDFString),
 	)
 	fMAC = flag.Int("a", int(geheim.DefaultMAC),
-		fmt.Sprintf("[enc] %s (%s)", geheim.MACDesc, geheim.GetMACString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.MACDesc, geheim.MACString),
 	)
 	fMD = flag.Int("h", int(geheim.DefaultMD),
-		fmt.Sprintf("[enc] %s (%s)", geheim.MDDesc, geheim.GetMDString()),
+		fmt.Sprintf("[enc] %s (%s)", geheim.MDDesc, geheim.MDString),
 	)
 	fSL = flag.Int("e", geheim.DefaultSec,
 		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
@@ -51,7 +50,7 @@ var (
 	fSign         = flag.String("s", "", "signature `path`")
 	fSignHex      = flag.String("x", "", "[dec] signature `hex`")
 	fPass         = flag.String("p", "", "`passcode`")
-	fOverwrite    = flag.Bool("f", false, "allow overwrite to existing destination")
+	fOverwrite    = flag.Bool("f", false, "allow overwrite")
 	fVerbose      = flag.Bool("v", false, "verbose")
 	fProgress     = flag.Bool("P", false, "show progress")
 	fVersion      = flag.Bool("V", false, "print version")
@@ -110,7 +109,7 @@ func getPass(passset bool) ([]byte, error) {
 		}
 		if !*fDecrypt {
 			var vpass []byte
-			if err := readPass(&vpass, "confirm passcode: "); err != nil {
+			if err := readPass(&vpass, "verify passcode: "); err != nil {
 				return nil, err
 			}
 			if !bytes.Equal(pass, vpass) {
@@ -240,16 +239,15 @@ func getCPUFeatures() (d []string) {
 	return
 }
 
-const progressDuration = time.Second
-
 func wrapProgress(r io.Reader, total int64, progress bool) (wrapped io.Reader, done chan<- struct{}) {
-	wrapped = r
-	d := make(chan struct{})
 	if progress {
-		p := &geheim.ProgressWriter{TotalBytes: total}
-		go p.Progress(d, progressDuration)
-		wrapped = io.TeeReader(r, p)
+		d := make(chan struct{})
+		pw := &geheim.ProgressWriter{TotalBytes: uint64(total)}
+		go pw.Progress(time.Second, d)
+		wrapped = io.TeeReader(r, pw)
 		done = d
+	} else {
+		wrapped = r
 	}
 	return
 }
@@ -267,16 +265,16 @@ var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode ge
 		err = errDry
 	}
 	if *fVerbose {
-		if e := defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC); err != nil {
+		if e := defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC); err == nil {
 			err = e
 		}
 	}
 	return
 }
 
-func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
-	wrapped, done := wrapProgress(in, inbytes, *fProgress)
-	signed, err := geheim.Encrypt(wrapped, out, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSL, printFunc)
+func enc(in io.Reader, out io.Writer, sign *os.File, pass []byte, inbytes int64) (err error) {
+	in, done := wrapProgress(in, inbytes, *fProgress)
+	signed, err := geheim.Encrypt(in, out, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSL, printFunc)
 	doneProgress(done)
 	if err != nil {
 		return
@@ -290,7 +288,7 @@ func enc(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 	return
 }
 
-func dec(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
+func dec(in io.Reader, out io.Writer, sign *os.File, pass []byte, inbytes int64) (err error) {
 	var signex []byte
 	if flags["x"] {
 		if signex, err = hex.DecodeString(*fSignHex); err != nil {
@@ -306,8 +304,8 @@ func dec(in, out, sign *os.File, pass []byte, inbytes int64) (err error) {
 			printf("%-8s%x\n", "SIGNEX", signex)
 		}
 	}
-	wrapped, done := wrapProgress(in, inbytes, *fProgress)
-	signed, err := geheim.DecryptVerify(wrapped, out, pass, signex, printFunc)
+	in, done := wrapProgress(in, inbytes, *fProgress)
+	signed, err := geheim.DecryptVerify(in, out, pass, signex, printFunc)
 	doneProgress(done)
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
@@ -336,7 +334,7 @@ func main() {
 		if *fVerbose {
 			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
 		} else {
-			printf("%s %s (%s)\n", app, gitTag, gitRev[:int(math.Min(float64(len(gitRev)), 7))])
+			printf("%s %s (%s)\n", app, gitTag, gitRev)
 		}
 		return
 	}
