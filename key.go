@@ -35,9 +35,9 @@ const (
 	MaxSec = 20
 )
 
-func GetSecIterMemory(sec int) (iter int, memory uint64) {
+func GetSecIterMemory(sec int) (iter int, memory int64) {
 	iter = 1e6 * sec
-	memory = uint64(1 << (20 + sec))
+	memory = int64(1 << (20 + sec))
 	return
 }
 

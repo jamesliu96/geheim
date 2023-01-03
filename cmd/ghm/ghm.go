@@ -242,7 +242,7 @@ func getCPUFeatures() (d []string) {
 func wrapProgress(r io.Reader, total int64, progress bool) (wrapped io.Reader, done chan<- struct{}) {
 	if progress {
 		d := make(chan struct{})
-		pw := &geheim.ProgressWriter{TotalBytes: uint64(total)}
+		pw := &geheim.ProgressWriter{TotalBytes: total}
 		go pw.Progress(time.Second, d)
 		wrapped = io.TeeReader(r, pw)
 		done = d

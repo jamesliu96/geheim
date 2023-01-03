@@ -158,7 +158,7 @@ func checkBytesSize[T comparable](sizes map[T]int, key T, value []byte, name str
 	return nil
 }
 
-func FormatSize(n uint64) string {
+func FormatSize(n int64) string {
 	var unit string
 	nn := float64(n)
 	f := "%.2f"
@@ -188,24 +188,24 @@ func FormatSize(n uint64) string {
 }
 
 type ProgressWriter struct {
-	TotalBytes uint64
+	TotalBytes int64
 
-	bytesWritten     uint64
-	lastBytesWritten uint64
+	bytesWritten     int64
+	lastBytesWritten int64
 	initTime         time.Time
 	lastTime         time.Time
 }
 
 func (w *ProgressWriter) Write(p []byte) (n int, err error) {
 	n = len(p)
-	w.bytesWritten += uint64(n)
+	w.bytesWritten += int64(n)
 	return
 }
 
 func (w *ProgressWriter) Progress(d time.Duration, done <-chan struct{}) {
 	w.initTime = time.Now()
+	var stop bool
 	for {
-		var stop bool
 		select {
 		case <-done:
 			stop = true
@@ -236,9 +236,9 @@ func (w ProgressWriter) print(stop bool) {
 		totalPerc = fmt.Sprintf("/%s (%.f%%)", FormatSize(w.TotalBytes), perc*100)
 	}
 	left := fmt.Sprintf("%s%s", FormatSize(w.bytesWritten), totalPerc)
-	right := fmt.Sprintf("%s/s", FormatSize(uint64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
+	right := fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
 	if stop {
-		right = fmt.Sprintf("%s/s", FormatSize(uint64(float64(w.bytesWritten)/float64(time.Since(w.initTime))/time.Nanosecond.Seconds())))
+		right = fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten)/float64(time.Since(w.initTime))/time.Nanosecond.Seconds())))
 	}
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
 	middleWidth := width - len(left) - len(right)
