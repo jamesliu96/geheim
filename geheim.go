@@ -31,7 +31,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err = randRead(iv); err != nil {
 		return
 	}
-	if err = Validate(pass, cipher, mode, kdf, mac, md, sec); err != nil {
+	if err = Validate(pass, cipher, mode, kdf, mac, md, sec, salt, iv); err != nil {
 		return
 	}
 	sm, err := getStreamMode(mode, false)
@@ -61,7 +61,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	}
 	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC)
+		err = printFn(header, pass, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
@@ -72,7 +72,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err = header.Write(bw); err != nil {
 		return
 	}
-	if _, err = io.Copy(newCipherStreamWriter(stream, io.MultiWriter(bw, mw)), br); err != nil {
+	if _, err = io.Copy(newStreamWriter(stream, io.MultiWriter(bw, mw)), br); err != nil {
 		return
 	}
 	sign = mw.Sum(nil)
@@ -99,7 +99,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 		return
 	}
 	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
-	if err = Validate(pass, cipher, mode, kdf, mac, md, sec); err != nil {
+	if err = Validate(pass, cipher, mode, kdf, mac, md, sec, salt, iv); err != nil {
 		return
 	}
 	sm, err := getStreamMode(mode, true)
@@ -123,12 +123,12 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 		return
 	}
 	if printFn != nil {
-		err = printFn(header.Version(), cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC)
+		err = printFn(header, pass, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
 	}
-	if _, err = io.Copy(bw, newCipherStreamReader(stream, io.TeeReader(br, mw))); err != nil {
+	if _, err = io.Copy(bw, newStreamReader(stream, io.TeeReader(br, mw))); err != nil {
 		return
 	}
 	sign = mw.Sum(nil)

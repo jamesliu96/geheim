@@ -242,7 +242,7 @@ func getCPUFeatures() (d []string) {
 func wrapProgress(r io.Reader, total int64, progress bool) (wrapped io.Reader, done chan<- struct{}) {
 	if progress {
 		d := make(chan struct{})
-		pw := &geheim.ProgressWriter{TotalBytes: total}
+		pw := geheim.NewProgressWriter(total)
 		go pw.Progress(time.Second, d)
 		wrapped = io.TeeReader(r, pw)
 		done = d
@@ -260,12 +260,12 @@ func doneProgress(done chan<- struct{}) {
 
 var defaultPrintFunc = geheim.NewDefaultPrintFunc(os.Stderr)
 
-var printFunc geheim.PrintFunc = func(version int, cipher geheim.Cipher, mode geheim.Mode, kdf geheim.KDF, mac geheim.MAC, md geheim.MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) (err error) {
+var printFunc geheim.PrintFunc = func(header geheim.Header, pass, keyCipher, keyMAC []byte) (err error) {
 	if *fDry {
 		err = errDry
 	}
 	if *fVerbose {
-		if e := defaultPrintFunc(version, cipher, mode, kdf, mac, md, sec, pass, salt, iv, keyCipher, keyMAC); err == nil {
+		if e := defaultPrintFunc(header, pass, keyCipher, keyMAC); err == nil {
 			err = e
 		}
 	}

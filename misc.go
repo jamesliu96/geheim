@@ -1,6 +1,7 @@
 package geheim
 
 import (
+	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
@@ -23,9 +24,11 @@ const (
 	SecDesc    = "security level"
 )
 
-type PrintFunc func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error
+type PrintFunc func(header Header, pass, keyCipher, keyMAC []byte) error
 
 type MDFunc func() hash.Hash
+
+type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
 	ErrEmptyPass = errors.New("empty passcode")
@@ -40,7 +43,7 @@ var (
 	ErrSigVer = errors.New("signature verification failed")
 )
 
-func Validate(pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int) (err error) {
+func Validate(pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) (err error) {
 	if len(pass) == 0 {
 		return ErrEmptyPass
 	}
@@ -97,11 +100,20 @@ func Validate(pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, se
 	if sec < MinSec || sec > MaxSec {
 		err = ErrInvSec
 	}
+	if err != nil {
+		return
+	}
+	if err = checkBytesSize(saltSizes, kdf, salt, "salt"); err != nil {
+		return
+	}
+	err = checkBytesSize(ivSizes, cipher, iv, "nonce")
 	return
 }
 
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
-	return func(version int, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, pass, salt, iv, keyCipher, keyMAC []byte) error {
+	return func(header Header, pass, keyCipher, keyMAC []byte) error {
+		version := header.Version()
+		cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
 		fmt.Fprintf(w, "%-8s%d\n", "VERSION", version)
 		if cipher == AES_256 {
 			fmt.Fprintf(w, "%-8s%s-%s(%d,%d)\n", "CIPHER", CipherNames[cipher], ModeNames[mode], cipher, mode)
@@ -119,9 +131,9 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		} else {
 			fmt.Fprintf(w, "%-8s%d(%s)\n", "SEC", sec, FormatSize(memory))
 		}
-		fmt.Fprintf(w, "%-8s%s(%x)\n", "PASS", pass, pass)
 		fmt.Fprintf(w, "%-8s%x\n", "SALT", salt)
 		fmt.Fprintf(w, "%-8s%x\n", "NONCE", iv)
+		fmt.Fprintf(w, "%-8s%s(%x)\n", "PASS", pass, pass)
 		fmt.Fprintf(w, "%-8s%x\n", "KEY", keyCipher)
 		if keyMAC != nil {
 			fmt.Fprintf(w, "%-8s%x\n", "MACKEY", keyMAC)
@@ -196,13 +208,24 @@ type ProgressWriter struct {
 	lastTime         time.Time
 }
 
+func NewProgressWriter(total int64) *ProgressWriter {
+	return &ProgressWriter{TotalBytes: total}
+}
+
 func (w *ProgressWriter) Write(p []byte) (n int, err error) {
 	n = len(p)
 	w.bytesWritten += int64(n)
 	return
 }
 
-func (w *ProgressWriter) Progress(d time.Duration, done <-chan struct{}) {
+func (w *ProgressWriter) Reset() {
+	w.bytesWritten = 0
+	w.lastBytesWritten = 0
+	w.initTime = time.Time{}
+	w.lastTime = time.Time{}
+}
+
+func (w *ProgressWriter) Progress(duration time.Duration, done <-chan struct{}) {
 	w.initTime = time.Now()
 	var stop bool
 	for {
@@ -218,7 +241,7 @@ func (w *ProgressWriter) Progress(d time.Duration, done <-chan struct{}) {
 		if stop {
 			break
 		}
-		time.Sleep(d - time.Since(n))
+		time.Sleep(duration - time.Since(n))
 	}
 }
 
@@ -227,7 +250,7 @@ const (
 	rightBracket = "] "
 )
 
-func (w ProgressWriter) print(stop bool) {
+func (w *ProgressWriter) print(last bool) {
 	hasTotalPerc := w.TotalBytes > 0
 	var perc float64
 	var totalPerc string
@@ -237,7 +260,7 @@ func (w ProgressWriter) print(stop bool) {
 	}
 	left := fmt.Sprintf("%s%s", FormatSize(w.bytesWritten), totalPerc)
 	right := fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
-	if stop {
+	if last {
 		right = fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten)/float64(time.Since(w.initTime))/time.Nanosecond.Seconds())))
 	}
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
@@ -260,7 +283,7 @@ func (w ProgressWriter) print(stop bool) {
 	}
 	middle = fmt.Sprintf(fmt.Sprintf("%%%ds", middleWidth-len(middle)), middle)
 	var newline string
-	if stop {
+	if last {
 		newline = "\n"
 	}
 	fmt.Fprintf(os.Stderr, "\r%s%s%s%s", left, middle, right, newline)

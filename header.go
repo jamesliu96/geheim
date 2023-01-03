@@ -28,12 +28,12 @@ const (
 
 const HeaderVersion = headerVer7
 
-func getHeader(ver uint32) (Header, error) {
-	switch ver {
+func getHeader(version uint32) (Header, error) {
+	switch version {
 	case headerVer7:
 		return &headerV7{}, nil
 	}
-	return nil, fmt.Errorf("unsupported header version: %d", ver)
+	return nil, fmt.Errorf("unsupported header version: %d", version)
 }
 
 type Meta struct {
@@ -67,7 +67,7 @@ func (m *Meta) checkPadding() error {
 }
 
 func NewMeta(version uint32) *Meta {
-	return &Meta{padding, version}
+	return &Meta{Padding: padding, Version: version}
 }
 
 type headerV7 struct {

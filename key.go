@@ -41,12 +41,8 @@ func GetSecIterMemory(sec int) (iter int, memory int64) {
 	return
 }
 
-func checkSaltSize(kdf KDF, salt []byte) error {
-	return checkBytesSize(saltSizes, kdf, salt, "salt")
-}
-
 func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, size int) ([]byte, error) {
-	if err := checkSaltSize(kdf, salt); err != nil {
+	if err := checkBytesSize(saltSizes, kdf, salt, "salt"); err != nil {
 		return nil, err
 	}
 	iter, memory := GetSecIterMemory(sec)

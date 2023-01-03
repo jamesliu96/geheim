@@ -52,8 +52,6 @@ var modes = [...]Mode{CTR, CFB, OFB}
 
 var ModeString = getOptionString(modes[:], ModeNames)
 
-type StreamMode func(cipher.Block, []byte) cipher.Stream
-
 func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	switch mode {
 	case CTR:
@@ -70,19 +68,8 @@ func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	return nil, ErrInvMode
 }
 
-func checkKeySizeCipher(cipher Cipher, key []byte) error {
-	return checkBytesSize(keySizesCipher, cipher, key, "cipher key")
-}
-
-func checkIVSize(cipher Cipher, iv []byte) error {
-	return checkBytesSize(ivSizes, cipher, iv, "nonce")
-}
-
 func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (cipher.Stream, error) {
-	if err := checkKeySizeCipher(cipher, key); err != nil {
-		return nil, err
-	}
-	if err := checkIVSize(cipher, iv); err != nil {
+	if err := checkBytesSize(ivSizes, cipher, iv, "nonce"); err != nil {
 		return nil, err
 	}
 	switch cipher {
@@ -99,10 +86,10 @@ func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (ciphe
 	return nil, ErrInvCipher
 }
 
-func newCipherStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
+func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {
 	return &cipher.StreamReader{S: stream, R: r}
 }
 
-func newCipherStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
+func newStreamWriter(stream cipher.Stream, w io.Writer) io.Writer {
 	return &cipher.StreamWriter{S: stream, W: w}
 }
