@@ -22,9 +22,15 @@ func printf(format string, v ...any) {
 	fmt.Fprintf(os.Stderr, format, v...)
 }
 
-func fatalf(err error) {
-	printf("%s\n", err)
-	os.Exit(1)
+func check(err error) (goterr bool) {
+	if err != nil {
+		printf("error: %s\n", err)
+		goterr = true
+	}
+	if goterr {
+		os.Exit(1)
+	}
+	return
 }
 
 func usage() {
@@ -42,8 +48,8 @@ func main() {
 	directive := os.Args[1]
 	if directive == p {
 		priv, pub, err := xp.P()
-		if err != nil {
-			fatalf(err)
+		if check(err) {
+			return
 		}
 		fmt.Printf("%-4s %s\n%-4s %s\n", "priv", hex.EncodeToString(priv), "pub", hex.EncodeToString(pub))
 	} else if directive == x {
@@ -52,18 +58,18 @@ func main() {
 			return
 		}
 		scalar, err := hex.DecodeString(os.Args[2])
-		if err != nil {
-			fatalf(err)
+		if check(err) {
+			return
 		}
 		var point []byte
 		if len(os.Args) > 3 {
-			if point, err = hex.DecodeString(os.Args[3]); err != nil {
-				fatalf(err)
+			if point, err = hex.DecodeString(os.Args[3]); check(err) {
+				return
 			}
 		}
 		product, err := xp.X(scalar, point)
-		if err != nil {
-			fatalf(err)
+		if check(err) {
+			return
 		}
 		fmt.Println(hex.EncodeToString(product))
 	} else {
