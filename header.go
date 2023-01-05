@@ -1,7 +1,6 @@
 package geheim
 
 import (
-	"errors"
 	"fmt"
 	"io"
 )
@@ -61,7 +60,7 @@ func (m *Meta) Header() (Header, error) {
 
 func (m *Meta) checkPadding() error {
 	if m.Padding != padding {
-		return errors.New("malformed header")
+		return ErrMfmHdr
 	}
 	return nil
 }

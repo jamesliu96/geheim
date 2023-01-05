@@ -31,7 +31,7 @@ type MDFunc func() hash.Hash
 type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
-	ErrEmptyPass = errors.New("empty passcode")
+	ErrEptPass = errors.New("empty passcode")
 
 	ErrInvCipher = fmt.Errorf("invalid %s (%s)", CipherDesc, CipherString)
 	ErrInvMode   = fmt.Errorf("invalid %s (%s)", ModeDesc, ModeString)
@@ -41,11 +41,12 @@ var (
 	ErrInvSec    = fmt.Errorf("invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 
 	ErrSigVer = errors.New("signature verification failed")
+	ErrMfmHdr = errors.New("malformed header")
 )
 
 func Validate(pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) (err error) {
 	if len(pass) == 0 {
-		return ErrEmptyPass
+		return ErrEptPass
 	}
 	err = ErrInvCipher
 	for _, c := range ciphers {
