@@ -200,31 +200,31 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 }
 
 func getCPUFeatures() (d []string) {
-	var v any
+	var arch any
 	switch runtime.GOARCH {
 	case "386":
 		fallthrough
 	case "amd64":
-		v = cpu.X86
+		arch = cpu.X86
 	case "arm":
-		v = cpu.ARM
+		arch = cpu.ARM
 	case "arm64":
-		v = cpu.ARM64
+		arch = cpu.ARM64
 	case "mips64":
 		fallthrough
 	case "mips64le":
-		v = cpu.MIPS64X
+		arch = cpu.MIPS64X
 	case "ppc64":
 		fallthrough
 	case "ppc64le":
-		v = cpu.PPC64
+		arch = cpu.PPC64
 	case "s390x":
-		v = cpu.S390X
+		arch = cpu.S390X
 	default:
 		return
 	}
-	ks := reflect.TypeOf(v)
-	vs := reflect.ValueOf(v)
+	ks := reflect.TypeOf(arch)
+	vs := reflect.ValueOf(arch)
 	for i := 0; i < ks.NumField(); i++ {
 		k := ks.Field(i)
 		v := vs.Field(i)
@@ -332,7 +332,7 @@ func main() {
 	}
 	if *fVersion {
 		if *fVerbose {
-			printf("%s [%s-%s] %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, gitTag, gitRev, getCPUFeatures())
+			printf("%s [%s-%s] [%s] {%d} %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, runtime.Version(), runtime.NumCPU(), gitTag, gitRev, getCPUFeatures())
 		} else {
 			printf("%s %s (%s)\n", app, gitTag, gitRev)
 		}
