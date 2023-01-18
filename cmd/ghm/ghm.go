@@ -42,7 +42,7 @@ var (
 	fMD = flag.Int("h", int(geheim.DefaultMD),
 		fmt.Sprintf("[enc] %s (%s)", geheim.MDDesc, geheim.MDString),
 	)
-	fSL = flag.Int("e", geheim.DefaultSec,
+	fSec = flag.Int("e", geheim.DefaultSec,
 		fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec),
 	)
 	fIn           = flag.String("i", os.Stdin.Name(), "input `path`")
@@ -74,7 +74,7 @@ var errDry = errors.New("dry run")
 
 func check(errs ...error) (goterr bool) {
 	for _, err := range errs {
-		if err != nil && err != errDry {
+		if err != nil && !errors.Is(err, errDry) {
 			printf("error: %s\n", err)
 			goterr = true
 		}
@@ -260,12 +260,12 @@ func doneProgress(done chan<- struct{}) {
 
 var defaultPrintFunc = geheim.NewDefaultPrintFunc(os.Stderr)
 
-var printFunc geheim.PrintFunc = func(header geheim.Header, pass, keyCipher, keyMAC []byte) (err error) {
+var printFunc geheim.PrintFunc = func(version int, header geheim.Header, pass, keyCipher, keyMAC []byte) (err error) {
 	if *fDry {
 		err = errDry
 	}
 	if *fVerbose {
-		if e := defaultPrintFunc(header, pass, keyCipher, keyMAC); err == nil {
+		if e := defaultPrintFunc(version, header, pass, keyCipher, keyMAC); err == nil {
 			err = e
 		}
 	}
@@ -274,7 +274,7 @@ var printFunc geheim.PrintFunc = func(header geheim.Header, pass, keyCipher, key
 
 func enc(in io.Reader, out io.Writer, sign *os.File, pass []byte, inbytes int64) (err error) {
 	in, done := wrapProgress(in, inbytes, *fProgress)
-	signed, err := geheim.Encrypt(in, out, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSL, printFunc)
+	signed, err := geheim.Encrypt(in, out, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
 	doneProgress(done)
 	if err != nil {
 		return

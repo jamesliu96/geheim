@@ -30,7 +30,10 @@ var keySizesCipher = map[Cipher]int{
 	ChaCha20: chacha20.KeySize,
 }
 
-var ciphers = [...]Cipher{AES_256, ChaCha20}
+var ciphers = [...]Cipher{
+	AES_256,
+	ChaCha20,
+}
 
 var CipherString = getOptionString(ciphers[:], CipherNames)
 
@@ -48,7 +51,11 @@ var ModeNames = map[Mode]string{
 	OFB: "OFB",
 }
 
-var modes = [...]Mode{CTR, CFB, OFB}
+var modes = [...]Mode{
+	CTR,
+	CFB,
+	OFB,
+}
 
 var ModeString = getOptionString(modes[:], ModeNames)
 

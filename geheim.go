@@ -9,7 +9,7 @@ import (
 const (
 	DefaultCipher = AES_256
 	DefaultMode   = CTR
-	DefaultKDF    = Argon2
+	DefaultKDF    = Argon2id
 	DefaultMAC    = HMAC
 	DefaultMD     = SHA_256
 	DefaultSec    = 10
@@ -31,9 +31,6 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err = randRead(iv); err != nil {
 		return
 	}
-	if err = Validate(pass, cipher, mode, kdf, mac, md, sec, salt, iv); err != nil {
-		return
-	}
 	sm, err := getStreamMode(mode, false)
 	if err != nil {
 		return
@@ -42,7 +39,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err != nil {
 		return
 	}
-	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, keySizesCipher[cipher], keySizesMAC[mac])
 	if err != nil {
 		return
 	}
@@ -54,14 +51,14 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err != nil {
 		return
 	}
-	meta := NewMeta(HeaderVersion)
+	meta := newMeta()
 	header, err := meta.Header()
 	if err != nil {
 		return
 	}
 	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
 	if printFn != nil {
-		err = printFn(header, pass, keyCipher, keyMAC)
+		err = printFn(int(meta.Version), header, pass, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
@@ -87,7 +84,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 			err = e
 		}
 	}()
-	meta := new(Meta)
+	meta := newMeta()
 	if err = meta.Read(br); err != nil {
 		return
 	}
@@ -99,9 +96,6 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 		return
 	}
 	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
-	if err = Validate(pass, cipher, mode, kdf, mac, md, sec, salt, iv); err != nil {
-		return
-	}
 	sm, err := getStreamMode(mode, true)
 	if err != nil {
 		return
@@ -110,7 +104,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 	if err != nil {
 		return
 	}
-	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, mdfn, keySizesCipher[cipher], keySizesMAC[mac])
+	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, keySizesCipher[cipher], keySizesMAC[mac])
 	if err != nil {
 		return
 	}
@@ -123,7 +117,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 		return
 	}
 	if printFn != nil {
-		err = printFn(header, pass, keyCipher, keyMAC)
+		err = printFn(int(meta.Version), header, pass, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}

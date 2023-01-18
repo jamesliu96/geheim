@@ -2,31 +2,31 @@ package geheim
 
 import (
 	"golang.org/x/crypto/argon2"
-	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
 )
 
 type KDF uint8
 
 const (
-	PBKDF2 KDF = 1 + iota
-	Argon2
+	_ KDF = 1 + iota
+	Argon2id
 	Scrypt
 )
 
 var KDFNames = map[KDF]string{
-	PBKDF2: "PBKDF2",
-	Argon2: "Argon2",
-	Scrypt: "Scrypt",
+	Argon2id: "Argon2id",
+	Scrypt:   "Scrypt",
 }
 
 var saltSizes = map[KDF]int{
-	PBKDF2: 32,
-	Argon2: 32,
-	Scrypt: 32,
+	Argon2id: 32,
+	Scrypt:   32,
 }
 
-var kdfs = [...]KDF{PBKDF2, Argon2, Scrypt}
+var kdfs = [...]KDF{
+	Argon2id,
+	Scrypt,
+}
 
 var KDFString = getOptionString(kdfs[:], KDFNames)
 
@@ -35,21 +35,23 @@ const (
 	MaxSec = 20
 )
 
-func GetSecIterMemory(sec int) (iter int, memory int64) {
-	iter = 1e6 * sec
-	memory = int64(1 << (20 + sec))
-	return
+func GetMemory(sec int) int64 {
+	return 1 << (20 + sec)
 }
 
-func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, size int) ([]byte, error) {
+func deriveKey(kdf KDF, pass, salt []byte, sec int, size int) ([]byte, error) {
+	if len(pass) == 0 {
+		return nil, ErrEptPass
+	}
 	if err := checkBytesSize(saltSizes, kdf, salt, "salt"); err != nil {
 		return nil, err
 	}
-	iter, memory := GetSecIterMemory(sec)
+	if sec < MinSec || sec > MaxSec {
+		return nil, ErrInvSec
+	}
+	memory := GetMemory(sec)
 	switch kdf {
-	case PBKDF2:
-		return pbkdf2.Key(pass, salt, iter, size, mdfn), nil
-	case Argon2:
+	case Argon2id:
 		return argon2.IDKey(pass, salt, 1, uint32(memory/1024), 128, uint32(size)), nil
 	case Scrypt:
 		const r, p = 8, 1
@@ -59,8 +61,11 @@ func deriveKey(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, size int) ([]by
 	return nil, ErrInvKDF
 }
 
-func deriveKeys(kdf KDF, pass, salt []byte, sec int, mdfn MDFunc, sizeCipher, sizeMAC int) (keyCipher, keyMAC []byte, err error) {
-	key, err := deriveKey(kdf, pass, salt, sec, mdfn, sizeCipher+sizeMAC)
+func deriveKeys(kdf KDF, pass, salt []byte, sec int, sizeCipher, sizeMAC int) (keyCipher, keyMAC []byte, err error) {
+	key, err := deriveKey(kdf, pass, salt, sec, sizeCipher+sizeMAC)
+	if err != nil {
+		return
+	}
 	keyCipher, keyMAC = key[:sizeCipher], key[sizeCipher:sizeCipher+sizeMAC]
 	return
 }

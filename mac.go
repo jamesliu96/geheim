@@ -19,7 +19,9 @@ var keySizesMAC = map[MAC]int{
 	HMAC: 64,
 }
 
-var macs = [...]MAC{HMAC}
+var macs = [...]MAC{
+	HMAC,
+}
 
 var MACString = getOptionString(macs[:], MACNames)
 

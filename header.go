@@ -1,72 +1,66 @@
 package geheim
 
 import (
-	"fmt"
 	"io"
 )
 
 type Header interface {
-	Version() int
 	Read(io.Reader) error
 	Write(io.Writer) error
 	Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
 	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
 }
 
-const padding uint32 = 0x47484dff
+const Magic = 1195920895
 
 const (
-	headerVer1 uint32 = 1 + iota
-	headerVer2
-	headerVer3
-	headerVer4
-	headerVer5
-	headerVer6
-	headerVer7
+	_ = 1 + iota
+	_
+	_
+	_
+	_
+	_
+	v7
 )
 
-const HeaderVersion = headerVer7
+const Version = v7
 
-func getHeader(version uint32) (Header, error) {
-	switch version {
-	case headerVer7:
-		return &headerV7{}, nil
-	}
-	return nil, fmt.Errorf("unsupported header version: %d", version)
-}
-
-type Meta struct {
-	Padding uint32
+type meta struct {
+	Magic   uint32
 	Version uint32
 }
 
-func (m *Meta) Read(r io.Reader) error {
+func newMeta() *meta {
+	return &meta{Magic: Magic, Version: Version}
+}
+
+func (m *meta) Read(r io.Reader) error {
 	if err := readBE(r, m); err != nil {
 		return err
 	}
-	return m.checkPadding()
+	return m.check()
 }
 
-func (m *Meta) Write(w io.Writer) error {
-	if err := m.checkPadding(); err != nil {
+func (m *meta) Write(w io.Writer) error {
+	if err := m.check(); err != nil {
 		return err
 	}
 	return writeBE(w, m)
 }
 
-func (m *Meta) Header() (Header, error) {
-	return getHeader(m.Version)
+func (m *meta) Header() (Header, error) {
+	switch m.Version {
+	case v7:
+		return &headerV7{}, nil
+	}
+	return nil, ErrMfmHdr
 }
 
-func (m *Meta) checkPadding() error {
-	if m.Padding != padding {
+func (m *meta) check() error {
+	if m.Magic != Magic {
 		return ErrMfmHdr
 	}
 	return nil
-}
-
-func NewMeta(version uint32) *Meta {
-	return &Meta{Padding: padding, Version: version}
 }
 
 type headerV7 struct {
@@ -74,10 +68,6 @@ type headerV7 struct {
 	MD, Sec, SaltSize, IVSize uint8
 	Salt                      [32]byte
 	IV                        [16]byte
-}
-
-func (v *headerV7) Version() int {
-	return int(headerVer7)
 }
 
 func (v *headerV7) Read(r io.Reader) error {

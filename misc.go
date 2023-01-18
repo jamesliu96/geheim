@@ -24,7 +24,7 @@ const (
 	SecDesc    = "security level"
 )
 
-type PrintFunc func(header Header, pass, keyCipher, keyMAC []byte) error
+type PrintFunc func(version int, header Header, pass, keyCipher, keyMAC []byte) error
 
 type MDFunc func() hash.Hash
 
@@ -32,6 +32,8 @@ type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
 	ErrEptPass = errors.New("empty passcode")
+
+	ErrMfmHdr = errors.New("malformed header")
 
 	ErrInvCipher = fmt.Errorf("invalid %s (%s)", CipherDesc, CipherString)
 	ErrInvMode   = fmt.Errorf("invalid %s (%s)", ModeDesc, ModeString)
@@ -41,79 +43,10 @@ var (
 	ErrInvSec    = fmt.Errorf("invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 
 	ErrSigVer = errors.New("signature verification failed")
-	ErrMfmHdr = errors.New("malformed header")
 )
 
-func Validate(pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) (err error) {
-	if len(pass) == 0 {
-		return ErrEptPass
-	}
-	err = ErrInvCipher
-	for _, c := range ciphers {
-		if c == cipher {
-			err = nil
-			break
-		}
-	}
-	if err != nil {
-		return
-	}
-	err = ErrInvMode
-	for _, m := range modes {
-		if m == mode {
-			err = nil
-			break
-		}
-	}
-	if err != nil {
-		return
-	}
-	err = ErrInvKDF
-	for _, k := range kdfs {
-		if k == kdf {
-			err = nil
-			break
-		}
-	}
-	if err != nil {
-		return
-	}
-	err = ErrInvMAC
-	for _, m := range macs {
-		if m == mac {
-			err = nil
-			break
-		}
-	}
-	if err != nil {
-		return
-	}
-	err = ErrInvMD
-	for _, m := range mds {
-		if m == md {
-			err = nil
-			break
-		}
-	}
-	if err != nil {
-		return
-	}
-	if sec < MinSec || sec > MaxSec {
-		err = ErrInvSec
-	}
-	if err != nil {
-		return
-	}
-	if err = checkBytesSize(saltSizes, kdf, salt, "salt"); err != nil {
-		return
-	}
-	err = checkBytesSize(ivSizes, cipher, iv, "nonce")
-	return
-}
-
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
-	return func(header Header, pass, keyCipher, keyMAC []byte) error {
-		version := header.Version()
+	return func(version int, header Header, pass, keyCipher, keyMAC []byte) error {
 		cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
 		fmt.Fprintf(w, "%-8s%d\n", "VERSION", version)
 		if cipher == AES_256 {
@@ -123,52 +56,15 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		}
 		fmt.Fprintf(w, "%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
 		fmt.Fprintf(w, "%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
-		if kdf == PBKDF2 || mac == HMAC {
-			fmt.Fprintf(w, "%-8s%s(%d)\n", "MD", MDNames[md], md)
-		}
-		iter, memory := GetSecIterMemory(sec)
-		if kdf == PBKDF2 {
-			fmt.Fprintf(w, "%-8s%d(%d)\n", "SEC", sec, iter)
-		} else {
-			fmt.Fprintf(w, "%-8s%d(%s)\n", "SEC", sec, FormatSize(memory))
-		}
+		fmt.Fprintf(w, "%-8s%s(%d)\n", "MD", MDNames[md], md)
+		fmt.Fprintf(w, "%-8s%d(%s)\n", "SEC", sec, FormatSize(GetMemory(sec)))
 		fmt.Fprintf(w, "%-8s%x\n", "SALT", salt)
 		fmt.Fprintf(w, "%-8s%x\n", "NONCE", iv)
 		fmt.Fprintf(w, "%-8s%s(%x)\n", "PASS", pass, pass)
 		fmt.Fprintf(w, "%-8s%x\n", "KEY", keyCipher)
-		if keyMAC != nil {
-			fmt.Fprintf(w, "%-8s%x\n", "MACKEY", keyMAC)
-		}
+		fmt.Fprintf(w, "%-8s%x\n", "MACKEY", keyMAC)
 		return nil
 	}
-}
-
-func readBE(r io.Reader, v any) error {
-	return binary.Read(r, binary.BigEndian, v)
-}
-
-func writeBE(w io.Writer, v any) error {
-	return binary.Write(w, binary.BigEndian, v)
-}
-
-func randRead(buf []byte) (err error) {
-	_, err = io.ReadFull(rand.Reader, buf)
-	return
-}
-
-func getOptionString[T comparable](values []T, names map[T]string) string {
-	d := make([]string, len(values))
-	for i, item := range values {
-		d[i] = fmt.Sprintf("%v:%s", item, names[item])
-	}
-	return strings.Join(d, ", ")
-}
-
-func checkBytesSize[T comparable](sizes map[T]int, key T, value []byte, name string) error {
-	if sizes[key] != len(value) {
-		return fmt.Errorf("invalid %s size", name)
-	}
-	return nil
 }
 
 func FormatSize(n int64) string {
@@ -288,4 +184,32 @@ func (w *ProgressWriter) print(last bool) {
 		newline = "\n"
 	}
 	fmt.Fprintf(os.Stderr, "\r%s%s%s%s", left, middle, right, newline)
+}
+
+func readBE(r io.Reader, v any) error {
+	return binary.Read(r, binary.BigEndian, v)
+}
+
+func writeBE(w io.Writer, v any) error {
+	return binary.Write(w, binary.BigEndian, v)
+}
+
+func randRead(buf []byte) (err error) {
+	_, err = io.ReadFull(rand.Reader, buf)
+	return
+}
+
+func getOptionString[T comparable](values []T, names map[T]string) string {
+	d := make([]string, len(values))
+	for i, item := range values {
+		d[i] = fmt.Sprintf("%v:%s", item, names[item])
+	}
+	return strings.Join(d, ", ")
+}
+
+func checkBytesSize[T comparable](sizes map[T]int, key T, value []byte, name string) error {
+	if sizes[key] != len(value) {
+		return fmt.Errorf("invalid %s size", name)
+	}
+	return nil
 }
