@@ -33,8 +33,8 @@ type StreamMode func(cipher.Block, []byte) cipher.Stream
 var (
 	ErrEptPass = errors.New("empty passcode")
 
-	ErrMfmHdr = errors.New("malformed header")
-	ErrUspVer = errors.New("unsupported version")
+	ErrMfmHdr  = errors.New("malformed header")
+	ErrUspVers = errors.New("unsupported version")
 
 	ErrInvCipher = fmt.Errorf("invalid %s (%s)", CipherDesc, CipherString)
 	ErrInvMode   = fmt.Errorf("invalid %s (%s)", ModeDesc, ModeString)

@@ -30,10 +30,6 @@ type meta struct {
 	Version uint32
 }
 
-func newMeta() *meta {
-	return &meta{Magic: Magic, Version: Version}
-}
-
 func (m *meta) Read(r io.Reader) error {
 	if err := readBE(r, m); err != nil {
 		return err
@@ -51,9 +47,9 @@ func (m *meta) Write(w io.Writer) error {
 func (m *meta) Header() (Header, error) {
 	switch m.Version {
 	case v7:
-		return &headerV7{}, nil
+		return new(headerV7), nil
 	}
-	return nil, ErrUspVer
+	return nil, ErrUspVers
 }
 
 func (m *meta) check() error {

@@ -51,7 +51,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err != nil {
 		return
 	}
-	meta := newMeta()
+	meta := &meta{Magic, Version}
 	header, err := meta.Header()
 	if err != nil {
 		return
@@ -84,7 +84,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 			err = e
 		}
 	}()
-	meta := newMeta()
+	meta := new(meta)
 	if err = meta.Read(br); err != nil {
 		return
 	}
