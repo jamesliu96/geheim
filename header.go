@@ -53,7 +53,7 @@ func (m *meta) Header() (Header, error) {
 	case v7:
 		return &headerV7{}, nil
 	}
-	return nil, ErrMfmHdr
+	return nil, ErrUspVer
 }
 
 func (m *meta) check() error {

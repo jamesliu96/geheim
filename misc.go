@@ -34,6 +34,7 @@ var (
 	ErrEptPass = errors.New("empty passcode")
 
 	ErrMfmHdr = errors.New("malformed header")
+	ErrUspVer = errors.New("unsupported version")
 
 	ErrInvCipher = fmt.Errorf("invalid %s (%s)", CipherDesc, CipherString)
 	ErrInvMode   = fmt.Errorf("invalid %s (%s)", ModeDesc, ModeString)
