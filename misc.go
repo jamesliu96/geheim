@@ -31,19 +31,16 @@ type MDFunc func() hash.Hash
 type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
-	ErrEptPass = errors.New("empty passcode")
+	ErrEptPass = errors.New("geheim: empty passcode")
+	ErrMfmHdr  = errors.New("geheim: malformed header")
+	ErrSigVer  = errors.New("geheim: signature verification failed")
 
-	ErrMfmHdr  = errors.New("malformed header")
-	ErrUspVers = errors.New("unsupported version")
-
-	ErrInvCipher = fmt.Errorf("invalid %s (%s)", CipherDesc, CipherString)
-	ErrInvMode   = fmt.Errorf("invalid %s (%s)", ModeDesc, ModeString)
-	ErrInvKDF    = fmt.Errorf("invalid %s (%s)", KDFDesc, KDFString)
-	ErrInvMAC    = fmt.Errorf("invalid %s (%s)", MACDesc, MACString)
-	ErrInvMD     = fmt.Errorf("invalid %s (%s)", MDDesc, MDString)
-	ErrInvSec    = fmt.Errorf("invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
-
-	ErrSigVer = errors.New("signature verification failed")
+	ErrInvCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
+	ErrInvMode   = fmt.Errorf("geheim: invalid %s (%s)", ModeDesc, ModeString)
+	ErrInvKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
+	ErrInvMAC    = fmt.Errorf("geheim: invalid %s (%s)", MACDesc, MACString)
+	ErrInvMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
+	ErrInvSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 )
 
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
@@ -210,7 +207,7 @@ func getOptionString[T comparable](values []T, names map[T]string) string {
 
 func checkBytesSize[T comparable](sizes map[T]int, key T, value []byte, name string) error {
 	if sizes[key] != len(value) {
-		return fmt.Errorf("invalid %s size", name)
+		return fmt.Errorf("geheim: invalid %s size", name)
 	}
 	return nil
 }

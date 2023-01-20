@@ -70,7 +70,7 @@ func printf(format string, v ...any) {
 	fmt.Fprintf(os.Stderr, format, v...)
 }
 
-var errDry = errors.New("dry run")
+var errDry = errors.New("ghm: dry run")
 
 func check(errs ...error) (goterr bool) {
 	for _, err := range errs {
@@ -125,7 +125,7 @@ func getPass(passset bool) ([]byte, error) {
 func checkTerminal(fds ...uintptr) error {
 	for _, fd := range fds {
 		if term.IsTerminal(int(fd)) {
-			return errors.New("invalid terminal i/o")
+			return errors.New("ghm: invalid terminal i/o")
 		}
 	}
 	return nil
@@ -141,7 +141,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 			return
 		} else {
 			if fi.IsDir() {
-				err = fmt.Errorf("input file \"%s\" is a directory", fi.Name())
+				err = fmt.Errorf("ghm: input file \"%s\" is a directory", fi.Name())
 				return
 			}
 			inbytes = fi.Size()
@@ -152,7 +152,7 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 	if outset {
 		if !*fOverwrite {
 			if fi, e := os.Stat(*fOut); e == nil {
-				err = fmt.Errorf("output file \"%s\" exists, use -f to overwrite", fi.Name())
+				err = fmt.Errorf("ghm: output file \"%s\" exists, use -f to overwrite", fi.Name())
 				return
 			}
 		}
@@ -176,13 +176,13 @@ func getIO(inset, outset, signset bool) (in, out, sign *os.File, inbytes int64, 
 				err = e
 				return
 			} else if fi.IsDir() {
-				err = fmt.Errorf("signature file \"%s\" is a directory", fi.Name())
+				err = fmt.Errorf("ghm: signature file \"%s\" is a directory", fi.Name())
 				return
 			}
 		} else {
 			if !*fOverwrite {
 				if fi, e := os.Stat(*fSign); e == nil {
-					err = fmt.Errorf("signature file \"%s\" exists, use -f to overwrite", fi.Name())
+					err = fmt.Errorf("ghm: signature file \"%s\" exists, use -f to overwrite", fi.Name())
 					return
 				}
 			}

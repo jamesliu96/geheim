@@ -34,10 +34,7 @@ func check(err error) (goterr bool) {
 }
 
 func usage() {
-	printf(
-		"%s %s (%s)\nusage: %s %s                  # pair\n       %s %s <scalar> [point] # mult\n",
-		app, gitTag, gitRev, app, p, app, x,
-	)
+	printf("%s %s (%s)\nusage: %s %s                  # pair\n       %s %s <scalar> [point] # mult\n", app, gitTag, gitRev, app, p, app, x)
 }
 
 func main() {

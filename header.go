@@ -1,6 +1,7 @@
 package geheim
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -49,7 +50,7 @@ func (m *meta) Header() (Header, error) {
 	case v7:
 		return new(headerV7), nil
 	}
-	return nil, ErrUspVers
+	return nil, fmt.Errorf("geheim: unsupported version %d", m.Version)
 }
 
 func (m *meta) check() error {

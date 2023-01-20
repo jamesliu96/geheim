@@ -2,12 +2,18 @@ package xp
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/curve25519"
 )
 
 func P() (private, public []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%+v", r)
+		}
+	}()
 	private = make([]byte, curve25519.ScalarSize)
 	if _, err = io.ReadFull(rand.Reader, private); err != nil {
 		return
@@ -20,6 +26,11 @@ func P() (private, public []byte, err error) {
 }
 
 func X(scalar, point []byte) (product []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%+v", r)
+		}
+	}()
 	if point == nil {
 		point = curve25519.Basepoint
 	}
