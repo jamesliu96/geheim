@@ -2,7 +2,6 @@ package geheim
 
 import (
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -190,11 +189,6 @@ func readBE(r io.Reader, v any) error {
 
 func writeBE(w io.Writer, v any) error {
 	return binary.Write(w, binary.BigEndian, v)
-}
-
-func randRead(buf []byte) (err error) {
-	_, err = io.ReadFull(rand.Reader, buf)
-	return
 }
 
 func getOptionString[T comparable](values []T, names map[T]string) string {

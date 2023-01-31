@@ -3,6 +3,7 @@ package geheim
 import (
 	"bufio"
 	"crypto/hmac"
+	"crypto/rand"
 	"fmt"
 	"io"
 )
@@ -30,11 +31,11 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 		}
 	}()
 	salt := make([]byte, saltSizes[kdf])
-	if err = randRead(salt); err != nil {
+	if _, err = rand.Read(salt); err != nil {
 		return
 	}
 	iv := make([]byte, ivSizes[cipher])
-	if err = randRead(iv); err != nil {
+	if _, err = rand.Read(iv); err != nil {
 		return
 	}
 	sm, err := getStreamMode(mode, false)
