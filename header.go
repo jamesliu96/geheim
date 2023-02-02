@@ -26,26 +26,30 @@ const (
 
 const Version = v7
 
-type meta struct {
+type Meta struct {
 	Magic   uint32
 	Version uint32
 }
 
-func (m *meta) Read(r io.Reader) error {
+func NewMeta() *Meta {
+	return &Meta{Magic, Version}
+}
+
+func (m *Meta) Read(r io.Reader) error {
 	if err := readBE(r, m); err != nil {
 		return err
 	}
 	return m.check()
 }
 
-func (m *meta) Write(w io.Writer) error {
+func (m *Meta) Write(w io.Writer) error {
 	if err := m.check(); err != nil {
 		return err
 	}
 	return writeBE(w, m)
 }
 
-func (m *meta) Header() (Header, error) {
+func (m *Meta) Header() (Header, error) {
 	switch m.Version {
 	case v7:
 		return new(headerV7), nil
@@ -53,7 +57,7 @@ func (m *meta) Header() (Header, error) {
 	return nil, fmt.Errorf("geheim: unsupported version %d", m.Version)
 }
 
-func (m *meta) check() error {
+func (m *Meta) check() error {
 	if m.Magic != Magic {
 		return ErrMfmHdr
 	}

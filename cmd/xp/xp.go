@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
+	"runtime"
 
 	"github.com/jamesliu96/geheim/xp"
+	"golang.org/x/term"
 )
 
 const app = "xp"
@@ -22,54 +25,69 @@ func printf(format string, v ...any) {
 	fmt.Fprintf(os.Stderr, format, v...)
 }
 
-func check(err error) (goterr bool) {
+func check(err error) {
 	if err != nil {
 		printf("error: %s\n", err)
-		goterr = true
-	}
-	if goterr {
 		os.Exit(1)
 	}
-	return
 }
 
 func usage() {
-	printf("%s %s (%s)\nusage: %s %s                  # pair\n       %s %s <scalar> [point] # mult\n", app, gitTag, gitRev, app, p, app, x)
+	printf("%s %s (%s)\nusage: %s %s                      # pair\n       %s %s <scalar> [point]     # mult\n       %s %s > priv.key           # privkey\n       %s %s < priv.key > pub.key # pubkey\n", app, gitTag, gitRev, app, p, app, x, app, p, app, x)
+	os.Exit(0)
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		usage()
-		return
+func isTerminal(file *os.File) bool {
+	if runtime.GOOS == "js" {
+		return true
 	}
-	directive := os.Args[1]
-	if directive == p {
+	return term.IsTerminal(int(file.Fd()))
+}
+
+var stdoutTerm = isTerminal(os.Stdout)
+var stdinTerm = isTerminal(os.Stdin)
+
+func main() {
+	argc := len(os.Args)
+	if argc < 2 {
+		usage()
+	}
+	switch os.Args[1] {
+	case p:
 		priv, pub, err := xp.P()
-		if check(err) {
-			return
+		check(err)
+		if stdoutTerm {
+			fmt.Printf("priv %x\npub  %x\n", priv, pub)
+		} else {
+			os.Stdout.Write(priv)
 		}
-		fmt.Printf("%-4s %s\n%-4s %s\n", "priv", hex.EncodeToString(priv), "pub", hex.EncodeToString(pub))
-	} else if directive == x {
-		if len(os.Args) < 3 {
-			usage()
-			return
-		}
-		scalar, err := hex.DecodeString(os.Args[2])
-		if check(err) {
-			return
-		}
+	case x:
+		var scalar []byte
 		var point []byte
-		if len(os.Args) > 3 {
-			if point, err = hex.DecodeString(os.Args[3]); check(err) {
-				return
+		var err error
+		if stdinTerm {
+			if argc < 3 {
+				usage()
+			}
+			scalar, err = hex.DecodeString(os.Args[2])
+		} else {
+			scalar, err = io.ReadAll(os.Stdin)
+		}
+		check(err)
+		if stdinTerm {
+			if argc > 3 {
+				point, err = hex.DecodeString(os.Args[3])
 			}
 		}
+		check(err)
 		product, err := xp.X(scalar, point)
-		if check(err) {
-			return
+		check(err)
+		if stdoutTerm {
+			fmt.Printf("%x\n", product)
+		} else {
+			os.Stdout.Write(product)
 		}
-		fmt.Println(hex.EncodeToString(product))
-	} else {
+	default:
 		usage()
 	}
 }
