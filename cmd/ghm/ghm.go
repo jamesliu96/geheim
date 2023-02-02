@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -44,6 +46,7 @@ var (
 	fVersion      = flag.Bool("V", false, "print version")
 	fPrintSignHex = flag.Bool("X", false, "print signature hex")
 	fDry          = flag.Bool("j", false, "dry run")
+	fArchive      = flag.Bool("z", false, "archive mode")
 )
 
 var flags = map[string]bool{}
@@ -237,10 +240,10 @@ var printFunc geheim.PrintFunc = func(version int, header geheim.Header, pass, k
 	return
 }
 
-func enc(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSize int64) (err error) {
+func encrypt(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSize int64) (err error) {
 	input, done := wrapProgress(input, inputSize)
+	defer doneProgress(done)
 	signed, err := geheim.Encrypt(input, output, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
-	doneProgress(done)
 	if err != nil {
 		return
 	}
@@ -253,7 +256,7 @@ func enc(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSiz
 	return
 }
 
-func dec(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSize int64) (err error) {
+func decrypt(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSize int64) (err error) {
 	var signex []byte
 	if flags["x"] {
 		if signex, err = hex.DecodeString(*fSignHex); err != nil {
@@ -270,13 +273,75 @@ func dec(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSiz
 		}
 	}
 	input, done := wrapProgress(input, inputSize)
+	defer doneProgress(done)
 	signed, err := geheim.DecryptVerify(input, output, pass, signex, printFunc)
-	doneProgress(done)
 	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
 		return
 	}
 	if *fVerbose || *fPrintSignHex {
 		printf("%-8s%x\n", "SIGNED", signed)
+	}
+	return
+}
+
+func readBEInt64(r io.Reader) (n int64, err error) {
+	err = binary.Read(r, binary.BigEndian, &n)
+	return
+}
+
+func writeBEInt64(w io.Writer, n int64) error {
+	return binary.Write(w, binary.BigEndian, n)
+}
+
+func encryptArchive(input io.Reader, output io.Writer, pass []byte, inputSize int64) (err error) {
+	input, done := wrapProgress(io.LimitReader(input, inputSize), inputSize)
+	defer doneProgress(done)
+	meta := geheim.NewMeta()
+	header, _ := meta.Header()
+	if err = writeBEInt64(output, int64(binary.Size(meta))+int64(binary.Size(header))+inputSize); err != nil {
+		return
+	}
+	signed, err := geheim.Encrypt(input, output, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
+	if err != nil {
+		return
+	}
+	if *fVerbose || *fPrintSignHex {
+		printf("%-8s%x\n", "SIGNED", signed)
+	}
+	if err = writeBEInt64(output, int64(len(signed))); err != nil {
+		return
+	}
+	_, err = output.Write(signed)
+	return
+}
+
+func decryptArchive(input io.Reader, output io.Writer, pass []byte, inputSize int64) (err error) {
+	input, done := wrapProgress(input, inputSize)
+	defer doneProgress(done)
+	dataSize, err := readBEInt64(input)
+	if err != nil {
+		return
+	}
+	signed, err := geheim.Decrypt(io.LimitReader(input, dataSize), output, pass, printFunc)
+	if err != nil {
+		return
+	}
+	if *fVerbose || *fPrintSignHex {
+		printf("%-8s%x\n", "SIGNED", signed)
+	}
+	signexSize, err := readBEInt64(input)
+	if err != nil {
+		return
+	}
+	signex, err := io.ReadAll(io.LimitReader(input, signexSize))
+	if err != nil {
+		return
+	}
+	if *fVerbose {
+		printf("%-8s%x\n", "SIGNEX", signex)
+	}
+	if !hmac.Equal(signex, signed) {
+		err = geheim.ErrSigVer
 	}
 	return
 }
@@ -313,10 +378,18 @@ func main() {
 	}()
 	pass, err := getPass()
 	check(err)
-	if *fDecrypt {
-		err = dec(input, output, sign, pass, inputSize)
+	if *fArchive {
+		if *fDecrypt {
+			err = decryptArchive(input, output, pass, inputSize)
+		} else {
+			err = encryptArchive(input, output, pass, inputSize)
+		}
 	} else {
-		err = enc(input, output, sign, pass, inputSize)
+		if *fDecrypt {
+			err = decrypt(input, output, sign, pass, inputSize)
+		} else {
+			err = encrypt(input, output, sign, pass, inputSize)
+		}
 	}
 	check(err)
 }
