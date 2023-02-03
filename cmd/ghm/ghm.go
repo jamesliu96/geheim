@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/hex"
 	"errors"
@@ -19,8 +20,9 @@ import (
 	"golang.org/x/term"
 )
 
+const app = "ghm"
+
 var (
-	app    = "ghm"
 	gitTag = "*"
 	gitRev = "*"
 )
@@ -103,7 +105,7 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 			return
 		}
 		if fi.IsDir() {
-			err = fmt.Errorf("ghm: input file \"%s\" is a directory", fi.Name())
+			err = errors.New("ghm: input file is a directory")
 			return
 		}
 		size = fi.Size()
@@ -112,8 +114,8 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 	}
 	if flags["o"] {
 		if !*fOverwrite {
-			if fi, e := os.Stat(*fOutput); e == nil {
-				err = fmt.Errorf("ghm: output file \"%s\" exists, use -f to overwrite", fi.Name())
+			if _, e := os.Stat(*fOutput); e == nil {
+				err = errors.New("ghm: output file  exists, use -f to overwrite")
 				return
 			}
 		}
@@ -136,13 +138,13 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 			if fi, err = signFile.Stat(); err != nil {
 				return
 			} else if fi.IsDir() {
-				err = fmt.Errorf("ghm: signature file \"%s\" is a directory", fi.Name())
+				err = errors.New("ghm: signature file is a directory")
 				return
 			}
 		} else {
 			if !*fOverwrite {
-				if fi, e := os.Stat(*fSign); e == nil {
-					err = fmt.Errorf("ghm: signature file \"%s\" exists, use -f to overwrite", fi.Name())
+				if _, e := os.Stat(*fSign); e == nil {
+					err = errors.New("ghm: signature file exists, use -f to overwrite")
 					return
 				}
 			}
@@ -245,8 +247,11 @@ func main() {
 			check(err)
 		}
 	}
-	var input io.Reader = inputFile
-	var output io.Writer = outputFile
+	input := io.Reader(bufio.NewReader(inputFile))
+	output := bufio.NewWriter(outputFile)
+	defer func() {
+		check(output.Flush())
+	}()
 	var done chan struct{}
 	if *fProgress {
 		pw := geheim.NewProgressWriter(size)
@@ -275,11 +280,15 @@ func main() {
 	if done != nil {
 		done <- struct{}{}
 	}
-	if *fVerbose && *fDecrypt {
-		printf("%-8s%x\n", "SIGNEX", signex)
+	if *fVerbose {
+		if signex != nil {
+			printf("%-8s%x\n", "SIGNEX", signex)
+		}
 	}
 	if *fVerbose || *fPrintSignHex {
-		printf("%-8s%x\n", "SIGNED", sign)
+		if sign != nil {
+			printf("%-8s%x\n", "SIGNED", sign)
+		}
 	}
 	check(err)
 	if !*fDecrypt {

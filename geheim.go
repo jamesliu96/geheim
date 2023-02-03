@@ -1,7 +1,6 @@
 package geheim
 
 import (
-	"bufio"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -20,13 +19,6 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
-		}
-	}()
-	br := bufio.NewReader(r)
-	bw := bufio.NewWriter(w)
-	defer func() {
-		if e := bw.Flush(); err == nil {
-			err = e
 		}
 	}()
 	salt := make([]byte, saltSizes[kdf])
@@ -69,13 +61,13 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 			return
 		}
 	}
-	if err = meta.Write(bw); err != nil {
+	if err = meta.Write(w); err != nil {
 		return
 	}
-	if err = header.Write(bw); err != nil {
+	if err = header.Write(w); err != nil {
 		return
 	}
-	if _, err = io.Copy(newStreamWriter(stream, io.MultiWriter(bw, mw)), br); err != nil {
+	if _, err = io.Copy(newStreamWriter(stream, io.MultiWriter(w, mw)), r); err != nil {
 		return
 	}
 	sign = mw.Sum(nil)
@@ -88,22 +80,15 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 			err = fmt.Errorf("%+v", r)
 		}
 	}()
-	br := bufio.NewReader(r)
-	bw := bufio.NewWriter(w)
-	defer func() {
-		if e := bw.Flush(); err == nil {
-			err = e
-		}
-	}()
 	meta := NewMeta()
-	if err = meta.Read(br); err != nil {
+	if err = meta.Read(r); err != nil {
 		return
 	}
 	header, err := meta.Header()
 	if err != nil {
 		return
 	}
-	if err = header.Read(br); err != nil {
+	if err = header.Read(r); err != nil {
 		return
 	}
 	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
@@ -133,7 +118,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 			return
 		}
 	}
-	if _, err = io.Copy(bw, newStreamReader(stream, io.TeeReader(br, mw))); err != nil {
+	if _, err = io.Copy(w, newStreamReader(stream, io.TeeReader(r, mw))); err != nil {
 		return
 	}
 	sign = mw.Sum(nil)

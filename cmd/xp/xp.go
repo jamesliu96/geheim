@@ -11,8 +11,9 @@ import (
 	"golang.org/x/term"
 )
 
+const app = "xp"
+
 var (
-	app    = "xp"
 	gitTag = "*"
 	gitRev = "*"
 )
