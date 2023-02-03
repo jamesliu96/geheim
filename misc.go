@@ -2,6 +2,7 @@ package geheim
 
 import (
 	"crypto/cipher"
+	"crypto/hmac"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -42,24 +43,32 @@ var (
 	ErrInvSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 )
 
+func Verify(x, y []byte) error {
+	if !hmac.Equal(x, y) {
+		return ErrSigVer
+	}
+	return nil
+}
+
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
+	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
 	return func(version int, header Header, pass, keyCipher, keyMAC []byte) error {
 		cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
-		fmt.Fprintf(w, "%-8s%d\n", "VERSION", version)
+		printf("%-8s%d\n", "VERSION", version)
 		if cipher == AES_256 {
-			fmt.Fprintf(w, "%-8s%s-%s(%d,%d)\n", "CIPHER", CipherNames[cipher], ModeNames[mode], cipher, mode)
+			printf("%-8s%s-%s(%d,%d)\n", "CIPHER", CipherNames[cipher], ModeNames[mode], cipher, mode)
 		} else {
-			fmt.Fprintf(w, "%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
+			printf("%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
 		}
-		fmt.Fprintf(w, "%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
-		fmt.Fprintf(w, "%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
-		fmt.Fprintf(w, "%-8s%s(%d)\n", "MD", MDNames[md], md)
-		fmt.Fprintf(w, "%-8s%d(%s)\n", "SEC", sec, FormatSize(GetMemory(sec)))
-		fmt.Fprintf(w, "%-8s%x\n", "SALT", salt)
-		fmt.Fprintf(w, "%-8s%x\n", "NONCE", iv)
-		fmt.Fprintf(w, "%-8s%s(%x)\n", "PASS", pass, pass)
-		fmt.Fprintf(w, "%-8s%x\n", "KEY", keyCipher)
-		fmt.Fprintf(w, "%-8s%x\n", "MACKEY", keyMAC)
+		printf("%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
+		printf("%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
+		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
+		printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
+		printf("%-8s%x\n", "SALT", salt)
+		printf("%-8s%x\n", "NONCE", iv)
+		printf("%-8s%s(%x)\n", "PASS", pass, pass)
+		printf("%-8s%x\n", "CIPKEY", keyCipher)
+		printf("%-8s%x\n", "MACKEY", keyMAC)
 		return nil
 	}
 }
@@ -102,9 +111,7 @@ type ProgressWriter struct {
 	lastTime         time.Time
 }
 
-func NewProgressWriter(total int64) *ProgressWriter {
-	return &ProgressWriter{TotalBytes: total}
-}
+func NewProgressWriter(total int64) *ProgressWriter { return &ProgressWriter{TotalBytes: total} }
 
 func (w *ProgressWriter) Write(p []byte) (n int, err error) {
 	n = len(p)
@@ -183,13 +190,9 @@ func (w *ProgressWriter) print(last bool) {
 	fmt.Fprintf(os.Stderr, "\r%s%s%s%s", left, middle, right, newline)
 }
 
-func readBE(r io.Reader, v any) error {
-	return binary.Read(r, binary.BigEndian, v)
-}
+func readBE(r io.Reader, v any) error { return binary.Read(r, binary.BigEndian, v) }
 
-func writeBE(w io.Writer, v any) error {
-	return binary.Write(w, binary.BigEndian, v)
-}
+func writeBE(w io.Writer, v any) error { return binary.Write(w, binary.BigEndian, v) }
 
 func getOptionString[T comparable](values []T, names map[T]string) string {
 	d := make([]string, len(values))

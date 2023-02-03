@@ -2,7 +2,6 @@ package geheim
 
 import (
 	"bufio"
-	"crypto/hmac"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -17,7 +16,7 @@ const (
 	DefaultSec    = 10
 )
 
-func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFn PrintFunc) (sign []byte, err error) {
+func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
@@ -64,8 +63,8 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 		return
 	}
 	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
-	if printFn != nil {
-		err = printFn(int(meta.Version), header, pass, keyCipher, keyMAC)
+	if printFunc != nil {
+		err = printFunc(int(meta.Version), header, pass, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
@@ -83,7 +82,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	return
 }
 
-func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []byte, err error) {
+func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
@@ -128,8 +127,8 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 	if err != nil {
 		return
 	}
-	if printFn != nil {
-		err = printFn(int(meta.Version), header, pass, keyCipher, keyMAC)
+	if printFunc != nil {
+		err = printFunc(int(meta.Version), header, pass, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
@@ -141,14 +140,12 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFn PrintFunc) (sign []b
 	return
 }
 
-func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFn PrintFunc) (sign []byte, err error) {
-	if sign, err = Decrypt(r, w, pass, printFn); err != nil {
+func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFunc PrintFunc) (sign []byte, err error) {
+	if sign, err = Decrypt(r, w, pass, printFunc); err != nil {
 		return
 	}
 	if signex != nil {
-		if !hmac.Equal(signex, sign) {
-			err = ErrSigVer
-		}
+		err = Verify(signex, sign)
 	}
 	return
 }

@@ -31,9 +31,7 @@ type Meta struct {
 	Version uint32
 }
 
-func NewMeta() *Meta {
-	return &Meta{Magic, Version}
-}
+func NewMeta() *Meta { return &Meta{Magic, Version} }
 
 func (m *Meta) Read(r io.Reader) error {
 	if err := readBE(r, m); err != nil {
@@ -71,13 +69,9 @@ type headerV7 struct {
 	IV                        [16]byte
 }
 
-func (v *headerV7) Read(r io.Reader) error {
-	return readBE(r, v)
-}
+func (v *headerV7) Read(r io.Reader) error { return readBE(r, v) }
 
-func (v *headerV7) Write(w io.Writer) error {
-	return writeBE(w, v)
-}
+func (v *headerV7) Write(w io.Writer) error { return writeBE(w, v) }
 
 func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) {
 	cipher = Cipher(v.Cipher)

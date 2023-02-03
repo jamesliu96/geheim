@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/hmac"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -27,6 +26,17 @@ var (
 	gitRev = "*"
 )
 
+func printf(format string, a ...any) { fmt.Fprintf(os.Stderr, format, a...) }
+
+func check(err error) {
+	if err != nil {
+		printf("error: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+var errDry = errors.New("ghm: dry run")
+
 var (
 	fDecrypt      = flag.Bool("d", false, "decrypt")
 	fCipher       = flag.Int("c", int(geheim.DefaultCipher), fmt.Sprintf("[enc] %s (%s)", geheim.CipherDesc, geheim.CipherString))
@@ -37,32 +47,26 @@ var (
 	fSec          = flag.Int("e", geheim.DefaultSec, fmt.Sprintf("[enc] %s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec))
 	fInput        = flag.String("i", os.Stdin.Name(), "input `path`")
 	fOutput       = flag.String("o", os.Stdout.Name(), "output `path`")
-	fSign         = flag.String("s", "", "signature `path`")
-	fSignHex      = flag.String("x", "", "[dec] signature `hex`")
 	fPass         = flag.String("p", "", "`passcode`")
-	fOverwrite    = flag.Bool("f", false, "allow overwrite")
+	fSign         = flag.String("s", "", "signature `path`")
+	fVerSignHex   = flag.String("x", "", "[dec] verify signature `hex`")
+	fOverwrite    = flag.Bool("f", false, "overwrite")
 	fVerbose      = flag.Bool("v", false, "verbose")
-	fProgress     = flag.Bool("P", false, "show progress")
-	fVersion      = flag.Bool("V", false, "print version")
-	fPrintSignHex = flag.Bool("X", false, "print signature hex")
+	fProgress     = flag.Bool("P", false, "progress")
+	fVersion      = flag.Bool("V", false, "version")
 	fDry          = flag.Bool("j", false, "dry run")
-	fArchive      = flag.Bool("z", false, "archive mode")
+	fPrintSignHex = flag.Bool("X", false, "print signature hex")
+	fArchive      = flag.Bool("z", false, "archive")
 )
 
-var flags = map[string]bool{}
+var flags = make(map[string]bool)
 
-func printf(format string, v ...any) {
-	fmt.Fprintf(os.Stderr, format, v...)
+func readBEInt64(r io.Reader) (n int64, err error) {
+	err = binary.Read(r, binary.BigEndian, &n)
+	return
 }
 
-var errDry = errors.New("ghm: dry run")
-
-func check(err error) {
-	if err != nil && !errors.Is(err, errDry) {
-		printf("error: %s\n", err)
-		os.Exit(1)
-	}
-}
+func writeBEInt64(w io.Writer, n int64) error { return binary.Write(w, binary.BigEndian, n) }
 
 func readPass(question string) (pass []byte, err error) {
 	for len(pass) == 0 {
@@ -100,12 +104,12 @@ func getPass() (pass []byte, err error) {
 	return
 }
 
-func getIO() (in, out, sign *os.File, inputSize int64, err error) {
+func getIO() (inputFile, outputFile, signFile *os.File, inputSize int64, err error) {
 	if flags["i"] {
-		if in, err = os.Open(*fInput); err != nil {
+		if inputFile, err = os.Open(*fInput); err != nil {
 			return
 		}
-		if fi, e := in.Stat(); e != nil {
+		if fi, e := inputFile.Stat(); e != nil {
 			err = e
 			return
 		} else {
@@ -116,7 +120,7 @@ func getIO() (in, out, sign *os.File, inputSize int64, err error) {
 			inputSize = fi.Size()
 		}
 	} else {
-		in = os.Stdin
+		inputFile = os.Stdin
 	}
 	if flags["o"] {
 		if !*fOverwrite {
@@ -125,23 +129,23 @@ func getIO() (in, out, sign *os.File, inputSize int64, err error) {
 				return
 			}
 		}
-		if out, err = os.Create(*fOutput); err != nil {
+		if outputFile, err = os.Create(*fOutput); err != nil {
 			return
 		}
 	} else {
-		out = os.Stdout
+		outputFile = os.Stdout
 	}
 	if *fVerbose {
-		printf("%-8s%s\n", "INPUT", in.Name())
-		printf("%-8s%s\n", "OUTPUT", out.Name())
+		printf("%-8s%s\n", "INPUT", inputFile.Name())
+		printf("%-8s%s\n", "OUTPUT", outputFile.Name())
 	}
-	files := []*os.File{in, out}
+	files := []*os.File{inputFile, outputFile}
 	if flags["s"] {
 		if *fDecrypt {
-			if sign, err = os.Open(*fSign); err != nil {
+			if signFile, err = os.Open(*fSign); err != nil {
 				return
 			}
-			if fi, e := sign.Stat(); e != nil {
+			if fi, e := signFile.Stat(); e != nil {
 				err = e
 				return
 			} else if fi.IsDir() {
@@ -155,14 +159,14 @@ func getIO() (in, out, sign *os.File, inputSize int64, err error) {
 					return
 				}
 			}
-			if sign, err = os.Create(*fSign); err != nil {
+			if signFile, err = os.Create(*fSign); err != nil {
 				return
 			}
 		}
 		if *fVerbose {
-			printf("%-8s%s\n", "SIGN", sign.Name())
+			printf("%-8s%s\n", "SIGN", signFile.Name())
 		}
-		files = append(files, sign)
+		files = append(files, signFile)
 	}
 	for _, file := range files {
 		if term.IsTerminal(int(file.Fd())) {
@@ -207,25 +211,6 @@ func cpuFeatures() (d []string) {
 	return
 }
 
-func wrapProgress(r io.Reader, total int64) (wrapped io.Reader, done chan<- struct{}) {
-	if *fProgress {
-		d := make(chan struct{})
-		pw := geheim.NewProgressWriter(total)
-		go pw.Progress(time.Second, d)
-		wrapped = io.TeeReader(r, pw)
-		done = d
-	} else {
-		wrapped = r
-	}
-	return
-}
-
-func doneProgress(done chan<- struct{}) {
-	if done != nil {
-		done <- struct{}{}
-	}
-}
-
 var defaultPrintFunc = geheim.NewDefaultPrintFunc(os.Stderr)
 
 var printFunc geheim.PrintFunc = func(version int, header geheim.Header, pass, keyCipher, keyMAC []byte) (err error) {
@@ -240,30 +225,24 @@ var printFunc geheim.PrintFunc = func(version int, header geheim.Header, pass, k
 	return
 }
 
-func encrypt(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSize int64) (err error) {
-	input, done := wrapProgress(input, inputSize)
-	defer doneProgress(done)
-	signed, err := geheim.Encrypt(input, output, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
-	if err != nil {
+func encrypt(input io.Reader, output io.Writer, signFile *os.File, pass []byte, inputSize int64) (sign []byte, err error) {
+	if sign, err = geheim.Encrypt(input, output, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc); err != nil {
 		return
 	}
-	if *fVerbose || *fPrintSignHex {
-		printf("%-8s%x\n", "SIGNED", signed)
-	}
-	if sign != nil {
-		_, err = sign.Write(signed)
+	if signFile != nil {
+		_, err = signFile.Write(sign)
 	}
 	return
 }
 
-func decrypt(input io.Reader, output io.Writer, sign *os.File, pass []byte, inputSize int64) (err error) {
+func decrypt(input io.Reader, output io.Writer, signFile *os.File, pass []byte, inputSize int64) (sign []byte, err error) {
 	var signex []byte
 	if flags["x"] {
-		if signex, err = hex.DecodeString(*fSignHex); err != nil {
+		if signex, err = hex.DecodeString(*fVerSignHex); err != nil {
 			return
 		}
-	} else if sign != nil {
-		if signex, err = io.ReadAll(sign); err != nil {
+	} else if signFile != nil {
+		if signex, err = io.ReadAll(signFile); err != nil {
 			return
 		}
 	}
@@ -272,62 +251,34 @@ func decrypt(input io.Reader, output io.Writer, sign *os.File, pass []byte, inpu
 			printf("%-8s%x\n", "SIGNEX", signex)
 		}
 	}
-	input, done := wrapProgress(input, inputSize)
-	defer doneProgress(done)
-	signed, err := geheim.DecryptVerify(input, output, pass, signex, printFunc)
-	if err != nil && !errors.Is(err, geheim.ErrSigVer) {
-		return
-	}
-	if *fVerbose || *fPrintSignHex {
-		printf("%-8s%x\n", "SIGNED", signed)
-	}
+	sign, err = geheim.DecryptVerify(input, output, pass, signex, printFunc)
 	return
 }
 
-func readBEInt64(r io.Reader) (n int64, err error) {
-	err = binary.Read(r, binary.BigEndian, &n)
-	return
-}
-
-func writeBEInt64(w io.Writer, n int64) error {
-	return binary.Write(w, binary.BigEndian, n)
-}
-
-func encryptArchive(input io.Reader, output io.Writer, pass []byte, inputSize int64) (err error) {
-	input, done := wrapProgress(io.LimitReader(input, inputSize), inputSize)
-	defer doneProgress(done)
+func encryptArchive(input io.Reader, output io.Writer, pass []byte, inputSize int64) (sign []byte, err error) {
+	input = io.LimitReader(input, inputSize)
 	meta := geheim.NewMeta()
 	header, _ := meta.Header()
 	if err = writeBEInt64(output, int64(binary.Size(meta))+int64(binary.Size(header))+inputSize); err != nil {
 		return
 	}
-	signed, err := geheim.Encrypt(input, output, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
-	if err != nil {
+	if sign, err = geheim.Encrypt(input, output, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc); err != nil {
 		return
 	}
-	if *fVerbose || *fPrintSignHex {
-		printf("%-8s%x\n", "SIGNED", signed)
-	}
-	if err = writeBEInt64(output, int64(len(signed))); err != nil {
+	if err = writeBEInt64(output, int64(len(sign))); err != nil {
 		return
 	}
-	_, err = output.Write(signed)
+	_, err = output.Write(sign)
 	return
 }
 
-func decryptArchive(input io.Reader, output io.Writer, pass []byte, inputSize int64) (err error) {
-	input, done := wrapProgress(input, inputSize)
-	defer doneProgress(done)
+func decryptArchive(input io.Reader, output io.Writer, pass []byte, inputSize int64) (sign []byte, err error) {
 	dataSize, err := readBEInt64(input)
 	if err != nil {
 		return
 	}
-	signed, err := geheim.Decrypt(io.LimitReader(input, dataSize), output, pass, printFunc)
-	if err != nil {
+	if sign, err = geheim.Decrypt(io.LimitReader(input, dataSize), output, pass, printFunc); err != nil {
 		return
-	}
-	if *fVerbose || *fPrintSignHex {
-		printf("%-8s%x\n", "SIGNED", signed)
 	}
 	signexSize, err := readBEInt64(input)
 	if err != nil {
@@ -340,9 +291,7 @@ func decryptArchive(input io.Reader, output io.Writer, pass []byte, inputSize in
 	if *fVerbose {
 		printf("%-8s%x\n", "SIGNEX", signex)
 	}
-	if !hmac.Equal(signex, signed) {
-		err = geheim.ErrSigVer
-	}
+	err = geheim.Verify(signex, sign)
 	return
 }
 
@@ -356,40 +305,65 @@ func main() {
 		flag.Usage()
 	}
 	flag.Parse()
-	flag.Visit(func(f *flag.Flag) {
-		flags[f.Name] = true
-	})
+	flag.Visit(func(f *flag.Flag) { flags[f.Name] = true })
 	if *fVersion {
 		if *fVerbose {
 			printf("%s [%s-%s] [%s] {%d} %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, runtime.Version(), runtime.NumCPU(), gitTag, gitRev, cpuFeatures())
 		} else {
 			printf("%s %s (%s)\n", app, gitTag, gitRev)
 		}
-		return
+		os.Exit(0)
 	}
-	input, output, sign, inputSize, err := getIO()
+	if *fVerbose {
+		if *fArchive {
+			printf("%-8s%s\n", "MODE", "ARCHIVE")
+		} else {
+			printf("%-8s%s\n", "MODE", "ISOLATE")
+		}
+	}
+	inputFile, outputFile, signFile, inputSize, err := getIO()
 	check(err)
 	defer func() {
-		check(input.Close())
-		check(output.Close())
-		if sign != nil {
-			check(sign.Close())
+		check(inputFile.Close())
+		check(outputFile.Close())
+		if signFile != nil {
+			check(signFile.Close())
 		}
 	}()
 	pass, err := getPass()
 	check(err)
+	var done chan struct{}
+	var input io.Reader = inputFile
+	if *fProgress {
+		done = make(chan struct{})
+		pw := geheim.NewProgressWriter(inputSize)
+		input = io.TeeReader(input, pw)
+		go pw.Progress(time.Second, done)
+	}
+	var sign []byte
 	if *fArchive {
 		if *fDecrypt {
-			err = decryptArchive(input, output, pass, inputSize)
+			sign, err = decryptArchive(input, outputFile, pass, inputSize)
 		} else {
-			err = encryptArchive(input, output, pass, inputSize)
+			sign, err = encryptArchive(input, outputFile, pass, inputSize)
 		}
 	} else {
 		if *fDecrypt {
-			err = decrypt(input, output, sign, pass, inputSize)
+			sign, err = decrypt(input, outputFile, signFile, pass, inputSize)
 		} else {
-			err = encrypt(input, output, sign, pass, inputSize)
+			sign, err = encrypt(input, outputFile, signFile, pass, inputSize)
 		}
 	}
-	check(err)
+	if done != nil {
+		done <- struct{}{}
+	}
+	if errors.Is(err, errDry) {
+		os.Exit(0)
+	}
+	if !errors.Is(err, geheim.ErrSigVer) {
+		check(err)
+	}
+	if *fVerbose || *fPrintSignHex {
+		printf("%-8s%x\n", "SIGNED", sign)
+	}
 }

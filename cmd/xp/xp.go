@@ -18,12 +18,7 @@ var (
 	gitRev = "*"
 )
 
-const p = "p"
-const x = "x"
-
-func printf(format string, v ...any) {
-	fmt.Fprintf(os.Stderr, format, v...)
-}
+func printf(format string, a ...any) { fmt.Fprintf(os.Stderr, format, a...) }
 
 func check(err error) {
 	if err != nil {
@@ -31,6 +26,9 @@ func check(err error) {
 		os.Exit(1)
 	}
 }
+
+const p = "p"
+const x = "x"
 
 func usage() {
 	printf("%s %s (%s)\nusage: %s %s                      # pair\n       %s %s <scalar> [point]     # mult\n       %s %s > priv.key           # privkey\n       %s %s < priv.key > pub.key # pubkey\n", app, gitTag, gitRev, app, p, app, x, app, p, app, x)

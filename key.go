@@ -35,9 +35,7 @@ const (
 	MaxSec = 20
 )
 
-func GetMemory(sec int) int64 {
-	return 1 << (20 + sec)
-}
+func GetMemory(sec int) int64 { return 1 << (20 + sec) }
 
 func deriveKey(kdf KDF, pass, salt []byte, sec int, size int) ([]byte, error) {
 	if len(pass) == 0 {
