@@ -149,3 +149,36 @@ func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFu
 	}
 	return
 }
+
+func EncryptArchive(r io.Reader, w io.Writer, pass []byte, size int64, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFunc PrintFunc) (sign []byte, err error) {
+	if err = writeBEInt64(w, OverheadSize+size); err != nil {
+		return
+	}
+	if sign, err = Encrypt(io.LimitReader(r, size), w, pass, cipher, mode, kdf, mac, md, sec, printFunc); err != nil {
+		return
+	}
+	if err = writeBEInt64(w, int64(len(sign))); err != nil {
+		return
+	}
+	_, err = w.Write(sign)
+	return
+}
+
+func DecryptArchive(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign []byte, signex []byte, err error) {
+	dataSize, err := readBEInt64(r)
+	if err != nil {
+		return
+	}
+	if sign, err = Decrypt(io.LimitReader(r, dataSize), w, pass, printFunc); err != nil {
+		return
+	}
+	signexSize, err := readBEInt64(r)
+	if err != nil {
+		return
+	}
+	if signex, err = io.ReadAll(io.LimitReader(r, signexSize)); err != nil {
+		return
+	}
+	err = Verify(signex, sign)
+	return
+}

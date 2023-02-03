@@ -50,6 +50,15 @@ func Verify(x, y []byte) error {
 	return nil
 }
 
+var (
+	meta      = NewMeta()
+	header, _ = meta.Header()
+
+	MetaSize     = int64(binary.Size(meta))
+	HeaderSize   = int64(binary.Size(header))
+	OverheadSize = MetaSize + HeaderSize
+)
+
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
 	return func(version int, header Header, pass, keyCipher, keyMAC []byte) error {
@@ -193,6 +202,13 @@ func (w *ProgressWriter) print(last bool) {
 func readBE(r io.Reader, v any) error { return binary.Read(r, binary.BigEndian, v) }
 
 func writeBE(w io.Writer, v any) error { return binary.Write(w, binary.BigEndian, v) }
+
+func readBEInt64(r io.Reader) (n int64, err error) {
+	err = binary.Read(r, binary.BigEndian, &n)
+	return
+}
+
+func writeBEInt64(w io.Writer, n int64) error { return binary.Write(w, binary.BigEndian, n) }
 
 func getOptionString[T comparable](values []T, names map[T]string) string {
 	d := make([]string, len(values))
