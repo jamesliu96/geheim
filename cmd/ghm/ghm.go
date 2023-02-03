@@ -238,11 +238,12 @@ func main() {
 	if *fDecrypt && !*fArchive {
 		if signFile != nil {
 			signex, err = io.ReadAll(signFile)
+			check(err)
 		}
 		if flags["x"] {
 			signex, err = hex.DecodeString(*fVerSignHex)
+			check(err)
 		}
-		check(err)
 	}
 	var input io.Reader = inputFile
 	var output io.Writer = outputFile
@@ -284,7 +285,7 @@ func main() {
 	if !*fDecrypt {
 		if signFile != nil {
 			_, err = signFile.Write(sign)
+			check(err)
 		}
 	}
-	check(err)
 }
