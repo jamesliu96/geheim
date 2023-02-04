@@ -31,7 +31,7 @@ const p = "p"
 const x = "x"
 
 func usage() {
-	printf("%s %s (%s)\nusage: %s %s                      # pair\n       %s %s <scalar> [point]     # mult\n       %s %s > priv.key           # privkey\n       %s %s < priv.key > pub.key # pubkey\n", app, gitTag, gitRev, app, p, app, x, app, p, app, x)
+	printf("%s %s (%s)\nusage: %s %s                  # pair\n       %s %s <scalar> [point] # mult\n", app, gitTag, gitRev, app, p, app, x)
 	os.Exit(0)
 }
 
@@ -55,9 +55,10 @@ func main() {
 		priv, pub, err := xp.P()
 		check(err)
 		if stdoutTerm {
-			fmt.Printf("priv %x\npub  %x\n", priv, pub)
+			fmt.Printf("%-5s%x\n%-5s%x\n", "priv", priv, "pub", pub)
 		} else {
 			os.Stdout.Write(priv)
+			printf("%-5s%x\n%-5s%x\n", "priv", priv, "pub", pub)
 		}
 	case x:
 		var scalar []byte
@@ -68,22 +69,26 @@ func main() {
 				usage()
 			}
 			scalar, err = hex.DecodeString(os.Args[2])
-		} else {
-			scalar, err = io.ReadAll(os.Stdin)
-		}
-		check(err)
-		if stdinTerm {
+			check(err)
 			if argc > 3 {
 				point, err = hex.DecodeString(os.Args[3])
+				check(err)
+			}
+		} else {
+			scalar, err = io.ReadAll(os.Stdin)
+			check(err)
+			if argc > 2 {
+				point, err = hex.DecodeString(os.Args[2])
+				check(err)
 			}
 		}
-		check(err)
 		product, err := xp.X(scalar, point)
 		check(err)
 		if stdoutTerm {
 			fmt.Printf("%x\n", product)
 		} else {
 			os.Stdout.Write(product)
+			printf("%x\n", product)
 		}
 	default:
 		usage()
