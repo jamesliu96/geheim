@@ -125,10 +125,6 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 	} else {
 		outputFile = os.Stdout
 	}
-	if *fVerbose {
-		printf("%-8s%s\n", "INPUT", inputFile.Name())
-		printf("%-8s%s\n", "OUTPUT", outputFile.Name())
-	}
 	if flags["s"] {
 		if *fDecrypt {
 			if signFile, err = os.Open(*fSign); err != nil {
@@ -151,9 +147,6 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 			if signFile, err = os.Create(*fSign); err != nil {
 				return
 			}
-		}
-		if *fVerbose {
-			printf("%-8s%s\n", "SIGN", signFile.Name())
 		}
 	}
 	for _, file := range []*os.File{inputFile, outputFile, signFile} {
@@ -234,6 +227,13 @@ func main() {
 			check(signFile.Close())
 		}
 	}()
+	if *fVerbose {
+		printf("%-8s%s\n", "INPUT", inputFile.Name())
+		printf("%-8s%s\n", "OUTPUT", outputFile.Name())
+		if signFile != nil {
+			printf("%-8s%s\n", "SIGN", signFile.Name())
+		}
+	}
 	pass, err := getPass()
 	check(err)
 	var signex []byte
