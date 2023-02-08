@@ -14,10 +14,8 @@ if [[ $1 = "-build" ]]; then
   fi
   ldflags="$ldflags -s -w"
   osarchs=$(go tool dist list)
-  for i in $osarchs; do
-    IFS="/"
-    osarch=($i)
-    unset IFS
+  for s in $osarchs; do
+    osarch=(${s//\// })
     os=${osarch[0]}
     arch=${osarch[1]}
     suffix=
