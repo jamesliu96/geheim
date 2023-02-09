@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/hex"
 	"errors"
@@ -247,11 +246,8 @@ func main() {
 			check(err)
 		}
 	}
-	input := io.Reader(bufio.NewReader(inputFile))
-	output := bufio.NewWriter(outputFile)
-	defer func() {
-		check(output.Flush())
-	}()
+	input := io.Reader(inputFile)
+	output := io.Writer(outputFile)
 	var done chan struct{}
 	if *fProgress {
 		pw := geheim.NewProgressWriter(size)
