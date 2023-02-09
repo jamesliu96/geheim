@@ -114,7 +114,7 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 	if flags["o"] {
 		if !*fOverwrite {
 			if _, e := os.Stat(*fOutput); e == nil {
-				err = errors.New("ghm: output file  exists, use -f to overwrite")
+				err = errors.New("ghm: output file exists, use -f to overwrite")
 				return
 			}
 		}
@@ -147,6 +147,10 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 				return
 			}
 		}
+	}
+	if *fArchive && !*fDecrypt && inputFile == os.Stdin {
+		err = errors.New("ghm: archive encryption does not accept standard input")
+		return
 	}
 	for _, file := range []*os.File{inputFile, outputFile, signFile} {
 		if file != nil && term.IsTerminal(int(file.Fd())) {
