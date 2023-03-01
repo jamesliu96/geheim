@@ -148,10 +148,6 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 			}
 		}
 	}
-	if *fArchive && !*fDecrypt && inputFile == os.Stdin {
-		err = errors.New("ghm: archive encryption does not accept standard input")
-		return
-	}
 	for _, file := range []*os.File{inputFile, outputFile, signFile} {
 		if file != nil && term.IsTerminal(int(file.Fd())) {
 			err = errors.New("ghm: invalid terminal i/o")

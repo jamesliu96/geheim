@@ -12,7 +12,7 @@ type Header interface {
 	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
 }
 
-const Magic = 1195920895
+const Magic = 0x47484dff
 
 const (
 	_ = 1 + iota

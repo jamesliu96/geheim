@@ -126,6 +126,11 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 }
 
 func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFunc PrintFunc) (sign []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%+v", r)
+		}
+	}()
 	if sign, err = Decrypt(r, w, pass, printFunc); err != nil {
 		return
 	}
@@ -136,10 +141,20 @@ func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFu
 }
 
 func EncryptArchive(r io.Reader, w io.Writer, pass []byte, size int64, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFunc PrintFunc) (sign []byte, err error) {
-	if err = writeBEInt64(w, OverheadSize+size); err != nil {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%+v", r)
+		}
+	}()
+	dataSize := OverheadSize + size
+	if err = writeBEInt64(w, dataSize); err != nil {
 		return
 	}
-	if sign, err = Encrypt(io.LimitReader(r, size), w, pass, cipher, mode, kdf, mac, md, sec, printFunc); err != nil {
+	pw := NewProgressWriter(dataSize)
+	if sign, err = Encrypt(io.LimitReader(r, size), io.MultiWriter(w, pw), pass, cipher, mode, kdf, mac, md, sec, printFunc); err != nil {
+		return
+	}
+	if err = pw.Close(); err != nil {
 		return
 	}
 	if err = writeBEInt64(w, int64(len(sign))); err != nil {
@@ -150,6 +165,11 @@ func EncryptArchive(r io.Reader, w io.Writer, pass []byte, size int64, cipher Ci
 }
 
 func DecryptArchive(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign []byte, signex []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%+v", r)
+		}
+	}()
 	dataSize, err := readBEInt64(r)
 	if err != nil {
 		return

@@ -41,6 +41,8 @@ var (
 	ErrInvMAC    = fmt.Errorf("geheim: invalid %s (%s)", MACDesc, MACString)
 	ErrInvMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
 	ErrInvSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
+
+	ErrPrgWtr = errors.New("geheim.ProgressWriter: incorrect bytes written")
 )
 
 func Verify(x, y []byte) error {
@@ -197,6 +199,13 @@ func (w *ProgressWriter) print(last bool) {
 		newline = "\n"
 	}
 	fmt.Fprintf(os.Stderr, "\r%s%s%s%s", left, middle, right, newline)
+}
+
+func (w *ProgressWriter) Close() error {
+	if w.bytesWritten == w.TotalBytes {
+		return nil
+	}
+	return ErrPrgWtr
 }
 
 func readBE(r io.Reader, v any) error { return binary.Read(r, binary.BigEndian, v) }
