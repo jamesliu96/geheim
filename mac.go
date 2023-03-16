@@ -5,7 +5,7 @@ import (
 	"hash"
 )
 
-type MAC uint8
+type MAC int
 
 const (
 	HMAC MAC = 1 + iota

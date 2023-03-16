@@ -5,7 +5,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
-type KDF uint8
+type KDF int
 
 const (
 	_ KDF = 1 + iota

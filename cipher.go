@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/chacha20"
 )
 
-type Cipher uint8
+type Cipher int
 
 const (
 	AES_256 Cipher = 1 + iota
@@ -37,7 +37,7 @@ var ciphers = [...]Cipher{
 
 var CipherString = getOptionString(ciphers[:], CipherNames)
 
-type Mode uint8
+type Mode int
 
 const (
 	CTR Mode = 1 + iota
