@@ -180,18 +180,20 @@ func (w *ProgressWriter) print(last bool) {
 	var middle string
 	if hasTotalPerc {
 		barsWidth := middleWidth - len(leftBracket) - len(rightBracket)
-		complete := int(float64(barsWidth) * perc)
-		bars := make([]byte, barsWidth)
-		for i := range bars {
-			if i < complete {
-				bars[i] = '='
-			} else if i != 0 && i == complete {
-				bars[i] = '>'
-			} else {
-				bars[i] = '-'
+		if barsWidth >= 0 {
+			complete := int(float64(barsWidth) * perc)
+			bars := make([]byte, barsWidth)
+			for i := range bars {
+				if i < complete {
+					bars[i] = '='
+				} else if i != 0 && i == complete {
+					bars[i] = '>'
+				} else {
+					bars[i] = '-'
+				}
 			}
+			middle = fmt.Sprintf("%s%s%s", leftBracket, bars, rightBracket)
 		}
-		middle = fmt.Sprintf("%s%s%s", leftBracket, bars, rightBracket)
 	}
 	middle = fmt.Sprintf(fmt.Sprintf("%%%ds", middleWidth-len(middle)), middle)
 	var newline string
