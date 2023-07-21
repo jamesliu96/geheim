@@ -7,13 +7,17 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
+const Size = curve25519.PointSize
+
+var Base = curve25519.Basepoint
+
 func P() (private, public []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
 		}
 	}()
-	private = make([]byte, curve25519.ScalarSize)
+	private = make([]byte, Size)
 	if _, err = rand.Read(private); err != nil {
 		return
 	}
@@ -31,7 +35,7 @@ func X(scalar, point []byte) (product []byte, err error) {
 		}
 	}()
 	if point == nil {
-		point = curve25519.Basepoint
+		point = Base
 	}
 	return curve25519.X25519(scalar, point)
 }
