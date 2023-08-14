@@ -20,7 +20,6 @@ if [[ $1 = "-build" ]]; then
     arch=${osarch[1]}
     suffix=
     [[ $os = "android" || $os = "ios" ]] && continue
-    [[ $os = "openbsd" && $arch = "mips64" ]] && continue
     [[ $os = "windows" ]] && suffix=".exe"
     [[ $arch = "wasm" ]] && suffix=".wasm"
     out="${outdir}/${app}_${os}_$arch$suffix"
