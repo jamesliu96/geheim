@@ -79,7 +79,7 @@ func (p nodes) Broadcast(conn net.PacketConn, pass string) {
 	}
 }
 
-func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, priv []byte, term *term.Terminal) {
+func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, priv []byte, writeFn func(m string, p string)) {
 	for {
 		buf := make([]byte, *fBufSize)
 		n, peerAddr, err := conn.ReadFrom(buf)
@@ -103,7 +103,7 @@ func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, priv []byte, 
 		if _, _, err := geheim.DecryptArchive(bytes.NewBuffer(payload), out, shared, nil); err != nil {
 			continue
 		}
-		fmt.Fprintf(term, "%s%s%s %s%s%s %s\n", term.Escape.Cyan, time.Now().Format(time.RFC3339), term.Escape.Reset, term.Escape.Yellow, peerAddr, term.Escape.Reset, out.String())
+		writeFn(out.String(), peerAddr.String())
 	}
 }
 
@@ -135,7 +135,9 @@ func main() {
 			io.Writer
 		}{os.Stdin, os.Stdout}, "> ")
 		peers := make(nodes)
-		go listen(conn, beaconAddr, peers, priv, term)
+		go listen(conn, beaconAddr, peers, priv, func(m, p string) {
+			fmt.Fprintf(term, "%s%s%s %s%s%s %s\n", term.Escape.Cyan, time.Now().Format(time.RFC3339), term.Escape.Reset, term.Escape.Yellow, p, term.Escape.Reset, m)
+		})
 		if _, err := conn.WriteTo(pub, beaconAddr); err != nil {
 			log.Fatalln(err)
 		}
