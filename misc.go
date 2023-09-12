@@ -203,23 +203,16 @@ func (w *ProgressWriter) print(last bool) {
 	fmt.Fprintf(os.Stderr, "\r%s%s%s%s", left, middle, right, newline)
 }
 
-func (w *ProgressWriter) Close() error {
-	if w.bytesWritten == w.TotalBytes {
-		return nil
-	}
-	return ErrPrgWtr
-}
-
 func readBE(r io.Reader, v any) error { return binary.Read(r, binary.BigEndian, v) }
 
 func writeBE(w io.Writer, v any) error { return binary.Write(w, binary.BigEndian, v) }
 
-func readBEInt64(r io.Reader) (n int64, err error) {
-	err = binary.Read(r, binary.BigEndian, &n)
+func readBEN[T any](r io.Reader) (n T, err error) {
+	err = readBE(r, &n)
 	return
 }
 
-func writeBEInt64(w io.Writer, n int64) error { return binary.Write(w, binary.BigEndian, n) }
+func writeBEN[T any](w io.Writer, n T) error { return writeBE(w, n) }
 
 func getOptionString[T comparable](values []T, names map[T]string) string {
 	d := make([]string, len(values))

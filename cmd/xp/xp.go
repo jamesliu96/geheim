@@ -31,7 +31,10 @@ const p = "p"
 const x = "x"
 
 func usage() {
-	printf("%s %s (%s)\nusage: %s %s                  # pair\n       %s %s <scalar> [point] # mult\n", app, gitTag, gitRev, app, p, app, x)
+	printf(`%s %s (%s)
+usage: %s %s                  # pair
+       %s %s <scalar> [point] # mult
+`, app, gitTag, gitRev, app, p, app, x)
 	os.Exit(0)
 }
 
@@ -42,8 +45,10 @@ func isTerminal(file *os.File) bool {
 	return term.IsTerminal(int(file.Fd()))
 }
 
-var stdoutTerm = isTerminal(os.Stdout)
-var stdinTerm = isTerminal(os.Stdin)
+var (
+	stdoutTerm = isTerminal(os.Stdout)
+	stdinTerm  = isTerminal(os.Stdin)
+)
 
 func main() {
 	argc := len(os.Args)

@@ -80,8 +80,8 @@ func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec
 	mac = MAC(v.MAC)
 	md = MD(v.MD)
 	sec = int(v.Sec)
-	salt = v.Salt[:v.SaltSize]
-	iv = v.IV[:v.IVSize]
+	salt = v.Salt[:min(int(v.SaltSize), len(v.Salt))]
+	iv = v.IV[:min(int(v.IVSize), len(v.IV))]
 	return
 }
 

@@ -194,7 +194,9 @@ func cpuFeatures() (d []string) {
 
 func main() {
 	flag.Usage = func() {
-		printf("usage: %s [option]...\noptions:\n", app)
+		printf(`usage: %s [option]...
+options:
+`, app)
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
