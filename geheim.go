@@ -29,10 +29,6 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if _, err = rand.Read(nonce); err != nil {
 		return
 	}
-	sm, err := getStreamMode(mode, false)
-	if err != nil {
-		return
-	}
 	mdfn, err := getMD(md)
 	if err != nil {
 		return
@@ -41,7 +37,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, keyCipher, nonce, sm)
+	stream, err := newCipherStream(cipher, mode, false, keyCipher, nonce)
 	if err != nil {
 		return
 	}
@@ -92,10 +88,6 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 		return
 	}
 	cipher, mode, kdf, mac, md, sec, salt, nonce := header.Get()
-	sm, err := getStreamMode(mode, true)
-	if err != nil {
-		return
-	}
 	mdfn, err := getMD(md)
 	if err != nil {
 		return
@@ -104,7 +96,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, keyCipher, nonce, sm)
+	stream, err := newCipherStream(cipher, mode, true, keyCipher, nonce)
 	if err != nil {
 		return
 	}

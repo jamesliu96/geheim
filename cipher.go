@@ -75,13 +75,17 @@ func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	return nil, ErrInvMode
 }
 
-func newCipherStream(cipher Cipher, key []byte, nonce []byte, sm StreamMode) (cipher.Stream, error) {
+func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key []byte, nonce []byte) (cipher.Stream, error) {
 	if err := checkBytesSize(nonceSizes, cipher, nonce, "nonce"); err != nil {
 		return nil, err
 	}
 	switch cipher {
 	case AES_256:
 		block, err := aes.NewCipher(key)
+		if err != nil {
+			return nil, err
+		}
+		sm, err := getStreamMode(mode, decrypt)
 		if err != nil {
 			return nil, err
 		}
