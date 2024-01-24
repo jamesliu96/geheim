@@ -8,11 +8,11 @@ import (
 type Header interface {
 	Read(io.Reader) error
 	Write(io.Writer) error
-	Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
-	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte)
+	Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, nonce []byte)
+	Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, nonce []byte)
 }
 
-const Magic = 0x47484dff
+const Magic = 1195920895
 
 const (
 	_ = 1 + iota
@@ -63,17 +63,17 @@ func (m *Meta) check() error {
 }
 
 type headerV7 struct {
-	Cipher, Mode, KDF, MAC    uint8
-	MD, Sec, SaltSize, IVSize uint8
-	Salt                      [32]byte
-	IV                        [16]byte
+	Cipher, Mode, KDF, MAC       uint8
+	MD, Sec, SaltSize, NonceSize uint8
+	Salt                         [32]byte
+	Nonce                        [16]byte
 }
 
 func (v *headerV7) Read(r io.Reader) error { return readBE(r, v) }
 
 func (v *headerV7) Write(w io.Writer) error { return writeBE(w, v) }
 
-func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) {
+func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, nonce []byte) {
 	cipher = Cipher(v.Cipher)
 	mode = Mode(v.Mode)
 	kdf = KDF(v.KDF)
@@ -81,11 +81,11 @@ func (v *headerV7) Get() (cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec
 	md = MD(v.MD)
 	sec = int(v.Sec)
 	salt = v.Salt[:min(int(v.SaltSize), len(v.Salt))]
-	iv = v.IV[:min(int(v.IVSize), len(v.IV))]
+	nonce = v.Nonce[:min(int(v.NonceSize), len(v.Nonce))]
 	return
 }
 
-func (v *headerV7) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, iv []byte) {
+func (v *headerV7) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, salt, nonce []byte) {
 	v.Cipher = uint8(cipher)
 	v.Mode = uint8(mode)
 	v.KDF = uint8(kdf)
@@ -93,5 +93,5 @@ func (v *headerV7) Set(cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec in
 	v.MD = uint8(md)
 	v.Sec = uint8(sec)
 	v.SaltSize = uint8(copy(v.Salt[:], salt))
-	v.IVSize = uint8(copy(v.IV[:], iv))
+	v.NonceSize = uint8(copy(v.Nonce[:], nonce))
 }

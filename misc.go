@@ -64,7 +64,7 @@ var (
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
 	return func(version int, header Header, pass, keyCipher, keyMAC []byte) error {
-		cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
+		cipher, mode, kdf, mac, md, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
 		if cipher == AES_256 {
 			printf("%-8s%s-%s(%d,%d)\n", "CIPHER", CipherNames[cipher], ModeNames[mode], cipher, mode)
@@ -76,7 +76,7 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
 		printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
 		printf("%-8s%x\n", "SALT", salt)
-		printf("%-8s%x\n", "NONCE", iv)
+		printf("%-8s%x\n", "NONCE", nonce)
 		printf("%-8s%s(%x)\n", "PASS", pass, pass)
 		printf("%-8s%x\n", "CIPKEY", keyCipher)
 		printf("%-8s%x\n", "MACKEY", keyMAC)

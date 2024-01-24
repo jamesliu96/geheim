@@ -25,8 +25,8 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if _, err = rand.Read(salt); err != nil {
 		return
 	}
-	iv := make([]byte, ivSizes[cipher])
-	if _, err = rand.Read(iv); err != nil {
+	nonce := make([]byte, nonceSizes[cipher])
+	if _, err = rand.Read(nonce); err != nil {
 		return
 	}
 	sm, err := getStreamMode(mode, false)
@@ -41,7 +41,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, keyCipher, iv, sm)
+	stream, err := newCipherStream(cipher, keyCipher, nonce, sm)
 	if err != nil {
 		return
 	}
@@ -54,7 +54,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err != nil {
 		return
 	}
-	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
+	header.Set(cipher, mode, kdf, mac, md, sec, salt, nonce)
 	if printFunc != nil {
 		err = printFunc(int(meta.Version), header, pass, keyCipher, keyMAC)
 		if err != nil {
@@ -91,7 +91,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 	if err = header.Read(r); err != nil {
 		return
 	}
-	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
+	cipher, mode, kdf, mac, md, sec, salt, nonce := header.Get()
 	sm, err := getStreamMode(mode, true)
 	if err != nil {
 		return
@@ -104,7 +104,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, keyCipher, iv, sm)
+	stream, err := newCipherStream(cipher, keyCipher, nonce, sm)
 	if err != nil {
 		return
 	}

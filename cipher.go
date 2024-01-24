@@ -20,7 +20,7 @@ var CipherNames = map[Cipher]string{
 	ChaCha20: "ChaCha20",
 }
 
-var ivSizes = map[Cipher]int{
+var nonceSizes = map[Cipher]int{
 	AES_256:  aes.BlockSize,
 	ChaCha20: chacha20.NonceSize,
 }
@@ -75,8 +75,8 @@ func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	return nil, ErrInvMode
 }
 
-func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (cipher.Stream, error) {
-	if err := checkBytesSize(ivSizes, cipher, iv, "nonce"); err != nil {
+func newCipherStream(cipher Cipher, key []byte, nonce []byte, sm StreamMode) (cipher.Stream, error) {
+	if err := checkBytesSize(nonceSizes, cipher, nonce, "nonce"); err != nil {
 		return nil, err
 	}
 	switch cipher {
@@ -85,9 +85,9 @@ func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (ciphe
 		if err != nil {
 			return nil, err
 		}
-		return sm(block, iv), nil
+		return sm(block, nonce), nil
 	case ChaCha20:
-		stream, err := chacha20.NewUnauthenticatedCipher(key, iv)
+		stream, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 		return stream, err
 	}
 	return nil, ErrInvCipher
