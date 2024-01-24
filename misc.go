@@ -122,6 +122,8 @@ type ProgressWriter struct {
 	lastTime         time.Time
 }
 
+var _ io.Writer = (*ProgressWriter)(nil)
+
 func NewProgressWriter(total int64) *ProgressWriter { return &ProgressWriter{TotalBytes: total} }
 
 func (w *ProgressWriter) Write(p []byte) (n int, err error) {
