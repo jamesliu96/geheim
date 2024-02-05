@@ -99,5 +99,5 @@ func getMD(md MD) (MDFunc, error) {
 			return h
 		}, nil
 	}
-	return nil, ErrInvMD
+	return nil, ErrMD
 }

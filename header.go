@@ -57,7 +57,7 @@ func (m *Meta) Header() (Header, error) {
 
 func (m *Meta) check() error {
 	if m.Magic != Magic {
-		return ErrMfmHdr
+		return ErrHeader
 	}
 	return nil
 }

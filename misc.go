@@ -31,23 +31,21 @@ type MDFunc func() hash.Hash
 type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
-	ErrEptPass = errors.New("geheim: empty passcode")
-	ErrMfmHdr  = errors.New("geheim: malformed header")
-	ErrSigVer  = errors.New("geheim: signature verification failed")
+	ErrPass   = errors.New("geheim: empty passcode")
+	ErrHeader = errors.New("geheim: malformed header")
+	ErrSign   = errors.New("geheim: signature verification failed")
 
-	ErrInvCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
-	ErrInvMode   = fmt.Errorf("geheim: invalid %s (%s)", ModeDesc, ModeString)
-	ErrInvKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
-	ErrInvMAC    = fmt.Errorf("geheim: invalid %s (%s)", MACDesc, MACString)
-	ErrInvMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
-	ErrInvSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
-
-	ErrPrgWtr = errors.New("geheim.ProgressWriter: incorrect bytes written")
+	ErrCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
+	ErrMode   = fmt.Errorf("geheim: invalid %s (%s)", ModeDesc, ModeString)
+	ErrKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
+	ErrMAC    = fmt.Errorf("geheim: invalid %s (%s)", MACDesc, MACString)
+	ErrMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
+	ErrSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 )
 
 func Verify(x, y []byte) error {
 	if !hmac.Equal(x, y) {
-		return ErrSigVer
+		return ErrSign
 	}
 	return nil
 }

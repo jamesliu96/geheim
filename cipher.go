@@ -72,7 +72,7 @@ func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	case OFB:
 		return cipher.NewOFB, nil
 	}
-	return nil, ErrInvMode
+	return nil, ErrMode
 }
 
 func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key []byte, nonce []byte) (cipher.Stream, error) {
@@ -94,7 +94,7 @@ func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key []byte, nonce [
 		stream, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 		return stream, err
 	}
-	return nil, ErrInvCipher
+	return nil, ErrCipher
 }
 
 func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {

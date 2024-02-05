@@ -39,13 +39,13 @@ func GetMemory(sec int) int64 { return 1 << (20 + sec) }
 
 func deriveKey(kdf KDF, pass, salt []byte, sec int, size int) ([]byte, error) {
 	if len(pass) == 0 {
-		return nil, ErrEptPass
+		return nil, ErrPass
 	}
 	if err := checkBytesSize(saltSizes, kdf, salt, "salt"); err != nil {
 		return nil, err
 	}
 	if sec < MinSec || sec > MaxSec {
-		return nil, ErrInvSec
+		return nil, ErrSec
 	}
 	memory := GetMemory(sec)
 	switch kdf {
@@ -56,7 +56,7 @@ func deriveKey(kdf KDF, pass, salt []byte, sec int, size int) ([]byte, error) {
 		key, err := scrypt.Key(pass, salt, int(memory/128/r/p), r, p, size)
 		return key, err
 	}
-	return nil, ErrInvKDF
+	return nil, ErrKDF
 }
 
 func deriveKeys(kdf KDF, pass, salt []byte, sec int, sizeCipher, sizeMAC int) (keyCipher, keyMAC []byte, err error) {
