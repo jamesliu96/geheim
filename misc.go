@@ -24,14 +24,14 @@ const (
 	SecDesc    = "security level"
 )
 
-type PrintFunc func(version int, header Header, pass, keyCipher, keyMAC []byte) error
+type PrintFunc func(version int, header Header, keys, keyCipher, keyMAC []byte) error
 
 type MDFunc func() hash.Hash
 
 type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
-	ErrPass   = errors.New("geheim: empty passcode")
+	ErrKey    = errors.New("geheim: empty key")
 	ErrHeader = errors.New("geheim: malformed header")
 	ErrSign   = errors.New("geheim: signature verification failed")
 
@@ -61,7 +61,7 @@ var (
 
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
-	return func(version int, header Header, pass, keyCipher, keyMAC []byte) error {
+	return func(version int, header Header, key, keyCipher, keyMAC []byte) error {
 		cipher, mode, kdf, mac, md, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
 		if cipher == AES_256 {
@@ -72,10 +72,16 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		printf("%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
 		printf("%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
 		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
-		printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
+		if kdf != HKDF {
+			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
+		}
 		printf("%-8s%x\n", "SALT", salt)
 		printf("%-8s%x\n", "NONCE", nonce)
-		printf("%-8s%s(%x)\n", "PASS", pass, pass)
+		if kdf == HKDF {
+			printf("%-8s%x\n", "KEY", key)
+		} else {
+			printf("%-8s%s(%x)\n", "KEY", key, key)
+		}
 		printf("%-8s%x\n", "CIPKEY", keyCipher)
 		printf("%-8s%x\n", "MACKEY", keyMAC)
 		return nil

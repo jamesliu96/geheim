@@ -39,7 +39,7 @@ var (
 	fDecrypt      = flag.Bool("d", false, "decrypt")
 	fInput        = flag.String("i", os.Stdin.Name(), "input `path`")
 	fOutput       = flag.String("o", os.Stdout.Name(), "output `path`")
-	fPass         = flag.String("p", "", "`passcode`")
+	fKey          = flag.String("p", "", "`key`")
 	fSign         = flag.String("s", "", "signature `path`")
 	fVerSignHex   = flag.String("x", "", "verify signature `hex`")
 	fOverwrite    = flag.Bool("f", false, "overwrite")
@@ -59,10 +59,10 @@ var (
 
 var flags = make(map[string]bool)
 
-func readPass(question string) (pass []byte, err error) {
-	for len(pass) == 0 {
+func readKey(question string) (key []byte, err error) {
+	for len(key) == 0 {
 		printf(question)
-		pass, err = term.ReadPassword(int(os.Stdin.Fd()))
+		key, err = term.ReadPassword(int(os.Stdin.Fd()))
 		printf("\n")
 		if err != nil {
 			return
@@ -71,21 +71,21 @@ func readPass(question string) (pass []byte, err error) {
 	return
 }
 
-func getPass() (pass []byte, err error) {
+func getKey() (key []byte, err error) {
 	if flags["p"] {
-		pass = []byte(*fPass)
+		key = []byte(*fKey)
 	} else {
 		for {
-			if pass, err = readPass("enter passcode: "); err != nil {
+			if key, err = readKey("enter key: "); err != nil {
 				return
 			}
 			if !*fDecrypt {
-				var vpass []byte
-				if vpass, err = readPass("verify passcode: "); err != nil {
+				var vkey []byte
+				if vkey, err = readKey("verify key: "); err != nil {
 					return
 				}
-				if !bytes.Equal(pass, vpass) {
-					pass = nil
+				if !bytes.Equal(key, vkey) {
+					key = nil
 					continue
 				}
 			}
@@ -236,7 +236,7 @@ options:
 			printf("%-8s%s\n", "SIGN", signFile.Name())
 		}
 	}
-	pass, err := getPass()
+	key, err := getKey()
 	check(err)
 	var signex []byte
 	if *fDecrypt && !*fArchive {
@@ -265,15 +265,15 @@ options:
 	var sign []byte
 	if *fArchive {
 		if *fDecrypt {
-			sign, signex, err = geheim.DecryptArchive(input, output, pass, printFunc)
+			sign, signex, err = geheim.DecryptArchive(input, output, key, printFunc)
 		} else {
-			sign, err = geheim.EncryptArchive(input, output, pass, size, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
+			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
 		}
 	} else {
 		if *fDecrypt {
-			sign, err = geheim.DecryptVerify(input, output, pass, signex, printFunc)
+			sign, err = geheim.DecryptVerify(input, output, key, signex, printFunc)
 		} else {
-			sign, err = geheim.Encrypt(input, output, pass, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
+			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
 		}
 	}
 	if done != nil {
