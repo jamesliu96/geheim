@@ -20,7 +20,7 @@ var CipherNames = map[Cipher]string{
 	ChaCha20: "ChaCha20",
 }
 
-var ivSizes = map[Cipher]int{
+var nonceSizes = map[Cipher]int{
 	AES_256:  aes.BlockSize,
 	ChaCha20: chacha20.NonceSize,
 }
@@ -72,11 +72,11 @@ func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	case OFB:
 		return cipher.NewOFB, nil
 	}
-	return nil, ErrInvMode
+	return nil, ErrMode
 }
 
-func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (cipher.Stream, error) {
-	if err := checkBytesSize(ivSizes, cipher, iv, "nonce"); err != nil {
+func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key []byte, nonce []byte) (cipher.Stream, error) {
+	if err := checkBytesSize(nonceSizes, cipher, nonce, "nonce"); err != nil {
 		return nil, err
 	}
 	switch cipher {
@@ -85,12 +85,16 @@ func newCipherStream(cipher Cipher, key []byte, iv []byte, sm StreamMode) (ciphe
 		if err != nil {
 			return nil, err
 		}
-		return sm(block, iv), nil
+		sm, err := getStreamMode(mode, decrypt)
+		if err != nil {
+			return nil, err
+		}
+		return sm(block, nonce), nil
 	case ChaCha20:
-		stream, err := chacha20.NewUnauthenticatedCipher(key, iv)
+		stream, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 		return stream, err
 	}
-	return nil, ErrInvCipher
+	return nil, ErrCipher
 }
 
 func newStreamReader(stream cipher.Stream, r io.Reader) io.Reader {

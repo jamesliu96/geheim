@@ -30,5 +30,5 @@ func getMAC(mac MAC, mdfn MDFunc, key []byte) (hash.Hash, error) {
 	case HMAC:
 		return hmac.New(mdfn, key), nil
 	}
-	return nil, ErrInvMAC
+	return nil, ErrMAC
 }

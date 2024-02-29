@@ -15,7 +15,7 @@ const (
 	DefaultSec    = 10
 )
 
-func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFunc PrintFunc) (sign []byte, err error) {
+func Encrypt(r io.Reader, w io.Writer, key []byte, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
@@ -25,23 +25,19 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if _, err = rand.Read(salt); err != nil {
 		return
 	}
-	iv := make([]byte, ivSizes[cipher])
-	if _, err = rand.Read(iv); err != nil {
-		return
-	}
-	sm, err := getStreamMode(mode, false)
-	if err != nil {
+	nonce := make([]byte, nonceSizes[cipher])
+	if _, err = rand.Read(nonce); err != nil {
 		return
 	}
 	mdfn, err := getMD(md)
 	if err != nil {
 		return
 	}
-	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, keySizesCipher[cipher], keySizesMAC[mac])
+	keyCipher, keyMAC, err := deriveKeys(kdf, mdfn, sec, keySizesCipher[cipher], keySizesMAC[mac], key, salt)
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, keyCipher, iv, sm)
+	stream, err := newCipherStream(cipher, mode, false, keyCipher, nonce)
 	if err != nil {
 		return
 	}
@@ -54,9 +50,9 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	if err != nil {
 		return
 	}
-	header.Set(cipher, mode, kdf, mac, md, sec, salt, iv)
+	header.Set(cipher, mode, kdf, mac, md, sec, salt, nonce)
 	if printFunc != nil {
-		err = printFunc(int(meta.Version), header, pass, keyCipher, keyMAC)
+		err = printFunc(int(meta.Version), header, key, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
@@ -74,7 +70,7 @@ func Encrypt(r io.Reader, w io.Writer, pass []byte, cipher Cipher, mode Mode, kd
 	return
 }
 
-func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign []byte, err error) {
+func Decrypt(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
@@ -91,20 +87,16 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 	if err = header.Read(r); err != nil {
 		return
 	}
-	cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
-	sm, err := getStreamMode(mode, true)
-	if err != nil {
-		return
-	}
+	cipher, mode, kdf, mac, md, sec, salt, nonce := header.Get()
 	mdfn, err := getMD(md)
 	if err != nil {
 		return
 	}
-	keyCipher, keyMAC, err := deriveKeys(kdf, pass, salt, sec, keySizesCipher[cipher], keySizesMAC[mac])
+	keyCipher, keyMAC, err := deriveKeys(kdf, mdfn, sec, keySizesCipher[cipher], keySizesMAC[mac], key, salt)
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, keyCipher, iv, sm)
+	stream, err := newCipherStream(cipher, mode, true, keyCipher, nonce)
 	if err != nil {
 		return
 	}
@@ -113,7 +105,7 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 		return
 	}
 	if printFunc != nil {
-		err = printFunc(int(meta.Version), header, pass, keyCipher, keyMAC)
+		err = printFunc(int(meta.Version), header, key, keyCipher, keyMAC)
 		if err != nil {
 			return
 		}
@@ -125,13 +117,13 @@ func Decrypt(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign [
 	return
 }
 
-func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFunc PrintFunc) (sign []byte, err error) {
+func DecryptVerify(r io.Reader, w io.Writer, key []byte, signex []byte, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
 		}
 	}()
-	if sign, err = Decrypt(r, w, pass, printFunc); err != nil {
+	if sign, err = Decrypt(r, w, key, printFunc); err != nil {
 		return
 	}
 	if signex != nil {
@@ -140,44 +132,40 @@ func DecryptVerify(r io.Reader, w io.Writer, pass []byte, signex []byte, printFu
 	return
 }
 
-func EncryptArchive(r io.Reader, w io.Writer, pass []byte, size int64, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFunc PrintFunc) (sign []byte, err error) {
+func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cipher, mode Mode, kdf KDF, mac MAC, md MD, sec int, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
 		}
 	}()
-	dataSize := OverheadSize + size
-	if err = writeBEInt64(w, dataSize); err != nil {
+	dataSize := Overhead + size
+	if err = writeBEN(w, dataSize); err != nil {
 		return
 	}
-	pw := NewProgressWriter(dataSize)
-	if sign, err = Encrypt(io.LimitReader(r, size), io.MultiWriter(w, pw), pass, cipher, mode, kdf, mac, md, sec, printFunc); err != nil {
+	if sign, err = Encrypt(io.LimitReader(r, size), w, key, cipher, mode, kdf, mac, md, sec, printFunc); err != nil {
 		return
 	}
-	if err = pw.Close(); err != nil {
-		return
-	}
-	if err = writeBEInt64(w, int64(len(sign))); err != nil {
+	if err = writeBEN(w, int64(len(sign))); err != nil {
 		return
 	}
 	_, err = w.Write(sign)
 	return
 }
 
-func DecryptArchive(r io.Reader, w io.Writer, pass []byte, printFunc PrintFunc) (sign []byte, signex []byte, err error) {
+func DecryptArchive(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (sign []byte, signex []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
 		}
 	}()
-	dataSize, err := readBEInt64(r)
+	dataSize, err := readBEN[int64](r)
 	if err != nil {
 		return
 	}
-	if sign, err = Decrypt(io.LimitReader(r, dataSize), w, pass, printFunc); err != nil {
+	if sign, err = Decrypt(io.LimitReader(r, dataSize), w, key, printFunc); err != nil {
 		return
 	}
-	signexSize, err := readBEInt64(r)
+	signexSize, err := readBEN[int64](r)
 	if err != nil {
 		return
 	}

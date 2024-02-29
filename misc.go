@@ -24,30 +24,28 @@ const (
 	SecDesc    = "security level"
 )
 
-type PrintFunc func(version int, header Header, pass, keyCipher, keyMAC []byte) error
+type PrintFunc func(version int, header Header, keys, keyCipher, keyMAC []byte) error
 
 type MDFunc func() hash.Hash
 
 type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
-	ErrEptPass = errors.New("geheim: empty passcode")
-	ErrMfmHdr  = errors.New("geheim: malformed header")
-	ErrSigVer  = errors.New("geheim: signature verification failed")
+	ErrKey    = errors.New("geheim: empty key")
+	ErrHeader = errors.New("geheim: malformed header")
+	ErrSign   = errors.New("geheim: signature verification failed")
 
-	ErrInvCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
-	ErrInvMode   = fmt.Errorf("geheim: invalid %s (%s)", ModeDesc, ModeString)
-	ErrInvKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
-	ErrInvMAC    = fmt.Errorf("geheim: invalid %s (%s)", MACDesc, MACString)
-	ErrInvMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
-	ErrInvSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
-
-	ErrPrgWtr = errors.New("geheim.ProgressWriter: incorrect bytes written")
+	ErrCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
+	ErrMode   = fmt.Errorf("geheim: invalid %s (%s)", ModeDesc, ModeString)
+	ErrKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
+	ErrMAC    = fmt.Errorf("geheim: invalid %s (%s)", MACDesc, MACString)
+	ErrMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
+	ErrSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 )
 
 func Verify(x, y []byte) error {
 	if !hmac.Equal(x, y) {
-		return ErrSigVer
+		return ErrSign
 	}
 	return nil
 }
@@ -56,15 +54,15 @@ var (
 	meta      = NewMeta()
 	header, _ = meta.Header()
 
-	MetaSize     = int64(binary.Size(meta))
-	HeaderSize   = int64(binary.Size(header))
-	OverheadSize = MetaSize + HeaderSize
+	MetaSize   = int64(binary.Size(meta))
+	HeaderSize = int64(binary.Size(header))
+	Overhead   = MetaSize + HeaderSize
 )
 
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
-	return func(version int, header Header, pass, keyCipher, keyMAC []byte) error {
-		cipher, mode, kdf, mac, md, sec, salt, iv := header.Get()
+	return func(version int, header Header, key, keyCipher, keyMAC []byte) error {
+		cipher, mode, kdf, mac, md, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
 		if cipher == AES_256 {
 			printf("%-8s%s-%s(%d,%d)\n", "CIPHER", CipherNames[cipher], ModeNames[mode], cipher, mode)
@@ -74,10 +72,16 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		printf("%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
 		printf("%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
 		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
-		printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
+		if kdf != HKDF {
+			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
+		}
 		printf("%-8s%x\n", "SALT", salt)
-		printf("%-8s%x\n", "NONCE", iv)
-		printf("%-8s%s(%x)\n", "PASS", pass, pass)
+		printf("%-8s%x\n", "NONCE", nonce)
+		if kdf == HKDF {
+			printf("%-8s%x\n", "KEY", key)
+		} else {
+			printf("%-8s%s(%x)\n", "KEY", key, key)
+		}
 		printf("%-8s%x\n", "CIPKEY", keyCipher)
 		printf("%-8s%x\n", "MACKEY", keyMAC)
 		return nil
@@ -121,6 +125,8 @@ type ProgressWriter struct {
 	initTime         time.Time
 	lastTime         time.Time
 }
+
+var _ io.Writer = (*ProgressWriter)(nil)
 
 func NewProgressWriter(total int64) *ProgressWriter { return &ProgressWriter{TotalBytes: total} }
 
@@ -203,23 +209,16 @@ func (w *ProgressWriter) print(last bool) {
 	fmt.Fprintf(os.Stderr, "\r%s%s%s%s", left, middle, right, newline)
 }
 
-func (w *ProgressWriter) Close() error {
-	if w.bytesWritten == w.TotalBytes {
-		return nil
-	}
-	return ErrPrgWtr
-}
-
 func readBE(r io.Reader, v any) error { return binary.Read(r, binary.BigEndian, v) }
 
 func writeBE(w io.Writer, v any) error { return binary.Write(w, binary.BigEndian, v) }
 
-func readBEInt64(r io.Reader) (n int64, err error) {
-	err = binary.Read(r, binary.BigEndian, &n)
+func readBEN[T any](r io.Reader) (n T, err error) {
+	err = readBE(r, &n)
 	return
 }
 
-func writeBEInt64(w io.Writer, n int64) error { return binary.Write(w, binary.BigEndian, n) }
+func writeBEN[T any](w io.Writer, n T) error { return writeBE(w, n) }
 
 func getOptionString[T comparable](values []T, names map[T]string) string {
 	d := make([]string, len(values))
