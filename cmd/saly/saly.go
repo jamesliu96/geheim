@@ -291,7 +291,7 @@ options:
 		check(err)
 		_, err = conn.WriteTo(out.Bytes(), beaconAddr)
 		check(err)
-		p := func() {
+		info := func() {
 			fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
 		}
 		term.AutoCompleteCallback = func(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
@@ -309,28 +309,28 @@ options:
 				break
 			}
 			if len(line) == 0 {
-				p()
+				info()
 				continue
 			}
 			dstMsg := strings.Split(strings.Trim(line, " "), " ")
 			if len(dstMsg) < 2 {
-				p()
+				info()
 				continue
 			}
 			dst := dstMsg[0]
 			peerPub, ok := peers[dst]
 			if !ok {
-				p()
+				info()
 				continue
 			}
 			peerAddr, err := net.ResolveUDPAddr("udp", dst)
 			if err != nil {
-				p()
+				info()
 				continue
 			}
 			shared, err := xp.X(priv, peerPub)
 			if err != nil {
-				p()
+				info()
 				continue
 			}
 			msg := []byte(strings.Join(dstMsg[1:], " "))
@@ -352,10 +352,7 @@ options:
 				continue
 			}
 			out, err := decrypt(bytes.NewBuffer(buf[:n]), key)
-			if err != nil {
-				continue
-			}
-			if out.Len() != xp.Size {
+			if err != nil || out.Len() != xp.Size {
 				continue
 			}
 			peers[peerAddr.String()] = out.Bytes()
