@@ -3,20 +3,39 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
+	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/jamesliu96/geheim"
 	"github.com/jamesliu96/geheim/xp"
+	"golang.org/x/sys/cpu"
 	"golang.org/x/term"
 )
+
+const app = "saly"
+
+var (
+	gitTag = "*"
+	gitRev = "*"
+)
+
+func printf(format string, a ...any) { fmt.Fprintf(os.Stderr, format, a...) }
+
+func check(err error) {
+	if err != nil {
+		printf("error: %s\n", err)
+		os.Exit(1)
+	}
+}
 
 var (
 	fNode = flag.Bool("x", false, "node mode")
@@ -25,6 +44,8 @@ var (
 	fNodeAddr   = flag.String("n", "", "node address")
 	fBufSize    = flag.Int("b", 64*1024, "buffer size")
 	fPass       = flag.String("p", "", "passcode")
+	fVerbose    = flag.Bool("v", false, "verbose")
+	fVersion    = flag.Bool("V", false, "version")
 
 	fCipher = flag.Int("c", int(geheim.DefaultCipher), fmt.Sprintf("%s (%s)", geheim.CipherDesc, geheim.CipherString))
 	fMode   = flag.Int("m", int(geheim.DefaultMode), fmt.Sprintf("%s (%s)", geheim.ModeDesc, geheim.ModeString))
@@ -107,28 +128,69 @@ func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, priv []byte, 
 	}
 }
 
+func cpuFeatures() (d []string) {
+	var arch any
+	switch runtime.GOARCH {
+	case "386", "amd64":
+		arch = cpu.X86
+	case "arm":
+		arch = cpu.ARM
+	case "arm64":
+		arch = cpu.ARM64
+	case "mips64", "mips64le":
+		arch = cpu.MIPS64X
+	case "ppc64", "ppc64le":
+		arch = cpu.PPC64
+	case "s390x":
+		arch = cpu.S390X
+	default:
+		return
+	}
+	ks := reflect.TypeOf(arch)
+	vs := reflect.ValueOf(arch)
+	for i := 0; i < ks.NumField(); i++ {
+		k := ks.Field(i)
+		v := vs.Field(i)
+		if k.Type.Kind() == reflect.Bool && v.Bool() {
+			name := strings.TrimPrefix(k.Name, "Has")
+			if name == k.Name {
+				name = strings.TrimPrefix(k.Name, "Is")
+			}
+			d = append(d, name)
+		}
+	}
+	return
+}
+
 func main() {
+	flag.Usage = func() {
+		printf(`usage: %s [option]...
+options:
+`, app)
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
 	flag.Parse()
+	if *fVersion {
+		if *fVerbose {
+			printf("%s [%s-%s] [%s] {%d} %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, runtime.Version(), runtime.NumCPU(), gitTag, gitRev, cpuFeatures())
+		} else {
+			printf("%s %s (%s)\n", app, gitTag, gitRev)
+		}
+		os.Exit(0)
+	}
 	if *fNode {
 		if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
-			log.Fatalln("stdin/stdout should be terminal")
+			check(errors.New("stdin/stdout should be terminal"))
 		}
 		beaconAddr, err := net.ResolveUDPAddr("udp", *fBeaconAddr)
-		if err != nil {
-			log.Fatalln(err)
-		}
+		check(err)
 		conn, err := net.ListenPacket("udp", *fNodeAddr)
-		if err != nil {
-			log.Fatalln(err)
-		}
+		check(err)
 		priv, pub, err := xp.P()
-		if err != nil {
-			log.Fatalln(err)
-		}
+		check(err)
 		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-		if err != nil {
-			log.Fatalln(err)
-		}
+		check(err)
 		defer term.Restore(int(os.Stdin.Fd()), oldState)
 		term := term.NewTerminal(struct {
 			io.Reader
@@ -138,9 +200,8 @@ func main() {
 		go listen(conn, beaconAddr, peers, priv, func(m, p string) {
 			fmt.Fprintf(term, "%s%s%s %s%s%s %s\n", term.Escape.Cyan, time.Now().Format(time.RFC3339), term.Escape.Reset, term.Escape.Yellow, p, term.Escape.Reset, m)
 		})
-		if _, err := conn.WriteTo(pub, beaconAddr); err != nil {
-			log.Fatalln(err)
-		}
+		_, err = conn.WriteTo(pub, beaconAddr)
+		check(err)
 		for {
 			line, err := term.ReadLine()
 			if err != nil {
@@ -181,9 +242,7 @@ func main() {
 	} else {
 		peers := make(nodes)
 		conn, err := net.ListenPacket("udp", *fBeaconAddr)
-		if err != nil {
-			log.Fatalln(err)
-		}
+		check(err)
 		for {
 			buf := make([]byte, *fBufSize)
 			n, peerAddr, err := conn.ReadFrom(buf)
