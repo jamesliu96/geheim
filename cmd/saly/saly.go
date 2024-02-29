@@ -10,8 +10,10 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -126,6 +128,32 @@ func (p nodes) Keys() []string {
 	return keys
 }
 
+func (p nodes) FindOne(keyword string) string {
+	if len(keyword) == 0 {
+		return ""
+	}
+	keys := p.Keys()
+	re := regexp.MustCompile(`^#(\d+)$`)
+	match := re.FindStringSubmatch(keyword)
+	if len(match) >= 2 {
+		if index, err := strconv.Atoi(match[1]); err == nil {
+			if len(keys) > index {
+				return keys[index]
+			}
+		}
+	}
+	var found string
+	for _, key := range keys {
+		if strings.HasPrefix(key, keyword) {
+			if len(found) != 0 {
+				return ""
+			}
+			found = key
+		}
+	}
+	return found
+}
+
 func (p *nodes) FromBytes(b, key []byte) {
 	out, err := decrypt(bytes.NewBuffer(b), key)
 	if err != nil {
@@ -218,8 +246,10 @@ options:
 		}
 		beaconAddr, err := net.ResolveUDPAddr("udp", *fBeaconAddr)
 		check(err)
+		printf("beacon receiving from %s\n", beaconAddr.String())
 		conn, err := net.ListenPacket("udp", *fNodeAddr)
 		check(err)
+		printf("node listening on %s\n", conn.LocalAddr().String())
 		priv, pub, err := xp.P()
 		check(err)
 		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
@@ -264,6 +294,15 @@ options:
 		p := func() {
 			fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
 		}
+		term.AutoCompleteCallback = func(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+			if key == '\t' {
+				one := peers.FindOne(strings.Trim(line, " "))
+				if len(one) != 0 {
+					return one + " ", len(one) + 1, true
+				}
+			}
+			return line, pos, false
+		}
 		for {
 			line, err := term.ReadLine()
 			if err != nil {
@@ -304,7 +343,7 @@ options:
 	} else {
 		conn, err := net.ListenPacket("udp", *fBeaconAddr)
 		check(err)
-		printf("listening on %s\n", *fBeaconAddr)
+		printf("beacon listening on %s\n", conn.LocalAddr().String())
 		peers := make(nodes)
 		for {
 			buf := make([]byte, *fBufSize)
