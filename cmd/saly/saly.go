@@ -93,6 +93,28 @@ func getKey() (key []byte, err error) {
 	return
 }
 
+func encrypt(buf *bytes.Buffer, shared bool, key []byte) (*bytes.Buffer, error) {
+	out := bytes.NewBuffer(nil)
+	kdf := func() geheim.KDF {
+		if shared {
+			return geheim.HKDF
+		}
+		return geheim.KDF(*fKDF)
+	}()
+	if _, err := geheim.EncryptArchive(buf, out, key, int64(buf.Len()), geheim.Cipher(*fCipher), geheim.Mode(*fMode), kdf, geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, nil); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func decrypt(buf *bytes.Buffer, key []byte) (*bytes.Buffer, error) {
+	out := bytes.NewBuffer(nil)
+	if _, _, err := geheim.DecryptArchive(buf, out, key, nil); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type nodes map[string][]byte
 
 func (p nodes) Keys() []string {
@@ -104,66 +126,33 @@ func (p nodes) Keys() []string {
 	return keys
 }
 
-func (p *nodes) FromBytes(b, pass []byte) {
-	buf := bytes.NewBuffer(b)
-	if len(pass) > 0 {
-		out := bytes.NewBuffer(nil)
-		if _, _, err := geheim.DecryptArchive(buf, out, pass, nil); err == nil {
-			buf = out
-		}
+func (p *nodes) FromBytes(b, key []byte) {
+	out, err := decrypt(bytes.NewBuffer(b), key)
+	if err != nil {
+		return
 	}
-	dec := gob.NewDecoder(buf)
+	dec := gob.NewDecoder(out)
 	dec.Decode(p)
 }
 
-func (p nodes) Broadcast(conn net.PacketConn, pass []byte) {
+func (p nodes) Broadcast(conn net.PacketConn, key []byte) {
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
 	if err := enc.Encode(p); err != nil {
 		return
 	}
-	b := buf.Bytes()
-	if len(pass) > 0 {
-		out := bytes.NewBuffer(nil)
-		if _, err := geheim.EncryptArchive(buf, out, pass, int64(buf.Len()), geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, nil); err == nil {
-			b = out.Bytes()
-		}
+	out, err := encrypt(buf, false, key)
+	if err != nil {
+		return
 	}
 	for node := range p {
 		r, err := net.ResolveUDPAddr("udp", node)
 		if err != nil {
 			continue
 		}
-		conn.WriteTo(b, r)
+		conn.WriteTo(out.Bytes(), r)
 	}
-}
-
-func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, key, priv []byte, writeFn func(m string, p string)) {
-	for {
-		buf := make([]byte, *fBufSize)
-		n, peerAddr, err := conn.ReadFrom(buf)
-		if err != nil {
-			continue
-		}
-		payload := buf[:n]
-		if peerAddr.String() == beaconAddr.String() {
-			peers.FromBytes(payload, key)
-			continue
-		}
-		peerPub, ok := peers[peerAddr.String()]
-		if !ok {
-			continue
-		}
-		shared, err := xp.X(priv, peerPub)
-		if err != nil {
-			continue
-		}
-		out := bytes.NewBuffer(nil)
-		if _, _, err := geheim.DecryptArchive(bytes.NewBuffer(payload), out, shared, nil); err != nil {
-			continue
-		}
-		writeFn(out.String(), peerAddr.String())
-	}
+	printf("%s\n", p.Keys())
 }
 
 func cpuFeatures() (d []string) {
@@ -241,44 +230,73 @@ options:
 			io.Writer
 		}{os.Stdin, os.Stdout}, "> ")
 		peers := make(nodes)
-		go listen(conn, beaconAddr, peers, key, priv, func(m, p string) {
-			fmt.Fprintf(term, "%s%s%s %s%s%s %s\n", term.Escape.Cyan, time.Now().Format(time.RFC3339), term.Escape.Reset, term.Escape.Yellow, p, term.Escape.Reset, m)
-		})
-		_, err = conn.WriteTo(pub, beaconAddr)
+		go func() {
+			for {
+				buf := make([]byte, *fBufSize)
+				n, peerAddr, err := conn.ReadFrom(buf)
+				if err != nil {
+					continue
+				}
+				payload := buf[:n]
+				if peerAddr.String() == beaconAddr.String() {
+					peers.FromBytes(payload, key)
+					continue
+				}
+				peerPub, ok := peers[peerAddr.String()]
+				if !ok {
+					continue
+				}
+				shared, err := xp.X(priv, peerPub)
+				if err != nil {
+					continue
+				}
+				out, err := decrypt(bytes.NewBuffer(payload), shared)
+				if err != nil {
+					continue
+				}
+				fmt.Fprintf(term, "%s%s%s %s%s%s %s\n", term.Escape.Cyan, time.Now().Format(time.RFC3339), term.Escape.Reset, term.Escape.Yellow, peerAddr.String(), term.Escape.Reset, out.String())
+			}
+		}()
+		out, err := encrypt(bytes.NewBuffer(pub), true, key)
 		check(err)
+		_, err = conn.WriteTo(out.Bytes(), beaconAddr)
+		check(err)
+		p := func() {
+			fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
+		}
 		for {
 			line, err := term.ReadLine()
 			if err != nil {
 				break
 			}
 			if len(line) == 0 {
-				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
+				p()
 				continue
 			}
 			dstMsg := strings.Split(strings.Trim(line, " "), " ")
 			if len(dstMsg) < 2 {
-				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
+				p()
 				continue
 			}
 			dst := dstMsg[0]
 			peerPub, ok := peers[dst]
 			if !ok {
-				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
+				p()
 				continue
 			}
 			peerAddr, err := net.ResolveUDPAddr("udp", dst)
 			if err != nil {
-				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
+				p()
 				continue
 			}
 			shared, err := xp.X(priv, peerPub)
 			if err != nil {
-				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
+				p()
 				continue
 			}
-			msg := strings.Join(dstMsg[1:], " ")
-			out := bytes.NewBuffer(nil)
-			if _, err := geheim.EncryptArchive(bytes.NewBuffer([]byte(msg)), out, shared, int64(len(msg)), geheim.ChaCha20, geheim.DefaultMode, geheim.HKDF, geheim.DefaultMAC, geheim.DefaultMD, geheim.DefaultSec, nil); err != nil {
+			msg := []byte(strings.Join(dstMsg[1:], " "))
+			out, err := encrypt(bytes.NewBuffer(msg), true, shared)
+			if err != nil {
 				continue
 			}
 			conn.WriteTo(out.Bytes(), peerAddr)
@@ -294,11 +312,14 @@ options:
 			if err != nil {
 				continue
 			}
-			pubkey := buf[:n]
-			if len(pubkey) != xp.Size {
+			out, err := decrypt(bytes.NewBuffer(buf[:n]), key)
+			if err != nil {
 				continue
 			}
-			peers[peerAddr.String()] = pubkey
+			if out.Len() != xp.Size {
+				continue
+			}
+			peers[peerAddr.String()] = out.Bytes()
 			go peers.Broadcast(conn, key)
 		}
 	}
