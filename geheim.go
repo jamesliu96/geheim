@@ -117,7 +117,7 @@ func Decrypt(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (sign []
 	return
 }
 
-func DecryptVerify(r io.Reader, w io.Writer, key []byte, signex []byte, printFunc PrintFunc) (sign []byte, err error) {
+func DecryptVerify(r io.Reader, w io.Writer, key, signex []byte, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
@@ -152,7 +152,7 @@ func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cip
 	return
 }
 
-func DecryptArchive(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (sign []byte, signex []byte, err error) {
+func DecryptArchive(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (sign, signex []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
