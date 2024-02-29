@@ -302,10 +302,10 @@ options:
 			conn.WriteTo(out.Bytes(), peerAddr)
 		}
 	} else {
-		peers := make(nodes)
 		conn, err := net.ListenPacket("udp", *fBeaconAddr)
 		check(err)
 		printf("listening on %s\n", *fBeaconAddr)
+		peers := make(nodes)
 		for {
 			buf := make([]byte, *fBufSize)
 			n, peerAddr, err := conn.ReadFrom(buf)
