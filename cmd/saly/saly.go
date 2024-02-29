@@ -11,7 +11,7 @@ import (
 	"os"
 	"reflect"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -40,10 +40,10 @@ func check(err error) {
 var (
 	fNode = flag.Bool("x", false, "node mode")
 
-	fBeaconAddr = flag.String("r", "", "beacon address")
-	fNodeAddr   = flag.String("n", "", "node address")
-	fBufSize    = flag.Int("b", 64*1024, "buffer size")
-	fPass       = flag.String("p", "", "passcode")
+	fBeaconAddr = flag.String("r", "", "beacon `address`")
+	fNodeAddr   = flag.String("n", "", "node `address`")
+	fBufSize    = flag.Int("b", 64*1024, "buffer `size`")
+	fKey        = flag.String("p", "", "`key`")
 	fVerbose    = flag.Bool("v", false, "verbose")
 	fVersion    = flag.Bool("V", false, "version")
 
@@ -55,6 +55,44 @@ var (
 	fSec    = flag.Int("e", geheim.DefaultSec, fmt.Sprintf("%s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec))
 )
 
+var flags = make(map[string]bool)
+
+func readKey(question string) (key []byte, err error) {
+	for len(key) == 0 {
+		printf(question)
+		key, err = term.ReadPassword(int(os.Stdin.Fd()))
+		printf("\n")
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func getKey() (key []byte, err error) {
+	if flags["p"] {
+		key = []byte(*fKey)
+	} else {
+		for {
+			if key, err = readKey("enter key: "); err != nil {
+				return
+			}
+			if !*fNode {
+				var vkey []byte
+				if vkey, err = readKey("verify key: "); err != nil {
+					return
+				}
+				if !bytes.Equal(key, vkey) {
+					key = nil
+					continue
+				}
+			}
+			break
+		}
+	}
+	return
+}
+
 type nodes map[string][]byte
 
 func (p nodes) Keys() []string {
@@ -62,15 +100,15 @@ func (p nodes) Keys() []string {
 	for node := range p {
 		keys = append(keys, node)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	return keys
 }
 
-func (p *nodes) FromBytes(b []byte, pass string) {
+func (p *nodes) FromBytes(b, pass []byte) {
 	buf := bytes.NewBuffer(b)
 	if len(pass) > 0 {
 		out := bytes.NewBuffer(nil)
-		if _, _, err := geheim.DecryptArchive(buf, out, []byte(pass), nil); err == nil {
+		if _, _, err := geheim.DecryptArchive(buf, out, pass, nil); err == nil {
 			buf = out
 		}
 	}
@@ -78,7 +116,7 @@ func (p *nodes) FromBytes(b []byte, pass string) {
 	dec.Decode(p)
 }
 
-func (p nodes) Broadcast(conn net.PacketConn, pass string) {
+func (p nodes) Broadcast(conn net.PacketConn, pass []byte) {
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
 	if err := enc.Encode(p); err != nil {
@@ -87,7 +125,7 @@ func (p nodes) Broadcast(conn net.PacketConn, pass string) {
 	b := buf.Bytes()
 	if len(pass) > 0 {
 		out := bytes.NewBuffer(nil)
-		if _, err := geheim.EncryptArchive(buf, out, []byte(pass), int64(buf.Len()), geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, nil); err == nil {
+		if _, err := geheim.EncryptArchive(buf, out, pass, int64(buf.Len()), geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, nil); err == nil {
 			b = out.Bytes()
 		}
 	}
@@ -100,7 +138,7 @@ func (p nodes) Broadcast(conn net.PacketConn, pass string) {
 	}
 }
 
-func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, priv []byte, writeFn func(m string, p string)) {
+func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, key, priv []byte, writeFn func(m string, p string)) {
 	for {
 		buf := make([]byte, *fBufSize)
 		n, peerAddr, err := conn.ReadFrom(buf)
@@ -109,7 +147,7 @@ func listen(conn net.PacketConn, beaconAddr net.Addr, peers nodes, priv []byte, 
 		}
 		payload := buf[:n]
 		if peerAddr.String() == beaconAddr.String() {
-			peers.FromBytes(payload, *fPass)
+			peers.FromBytes(payload, key)
 			continue
 		}
 		peerPub, ok := peers[peerAddr.String()]
@@ -170,7 +208,11 @@ options:
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
+	if len(os.Args) < 2 {
+		flag.Usage()
+	}
 	flag.Parse()
+	flag.Visit(func(f *flag.Flag) { flags[f.Name] = true })
 	if *fVersion {
 		if *fVerbose {
 			printf("%s [%s-%s] [%s] {%d} %s (%s) %s\n", app, runtime.GOOS, runtime.GOARCH, runtime.Version(), runtime.NumCPU(), gitTag, gitRev, cpuFeatures())
@@ -179,6 +221,8 @@ options:
 		}
 		os.Exit(0)
 	}
+	key, err := getKey()
+	check(err)
 	if *fNode {
 		if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
 			check(errors.New("stdin/stdout should be terminal"))
@@ -197,7 +241,7 @@ options:
 			io.Writer
 		}{os.Stdin, os.Stdout}, "> ")
 		peers := make(nodes)
-		go listen(conn, beaconAddr, peers, priv, func(m, p string) {
+		go listen(conn, beaconAddr, peers, key, priv, func(m, p string) {
 			fmt.Fprintf(term, "%s%s%s %s%s%s %s\n", term.Escape.Cyan, time.Now().Format(time.RFC3339), term.Escape.Reset, term.Escape.Yellow, p, term.Escape.Reset, m)
 		})
 		_, err = conn.WriteTo(pub, beaconAddr)
@@ -208,33 +252,33 @@ options:
 				break
 			}
 			if len(line) == 0 {
-				fmt.Fprintln(term, peers.Keys())
+				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
 				continue
 			}
 			dstMsg := strings.Split(strings.Trim(line, " "), " ")
 			if len(dstMsg) < 2 {
-				fmt.Fprintln(term, peers.Keys())
+				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
 				continue
 			}
 			dst := dstMsg[0]
 			peerPub, ok := peers[dst]
 			if !ok {
-				fmt.Fprintln(term, peers.Keys())
+				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
 				continue
 			}
 			peerAddr, err := net.ResolveUDPAddr("udp", dst)
 			if err != nil {
-				fmt.Fprintln(term, peers.Keys())
+				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
 				continue
 			}
 			shared, err := xp.X(priv, peerPub)
 			if err != nil {
-				fmt.Fprintln(term, peers.Keys())
+				fmt.Fprintf(term, "%s%s%s\n", term.Escape.Green, peers.Keys(), term.Escape.Reset)
 				continue
 			}
 			msg := strings.Join(dstMsg[1:], " ")
 			out := bytes.NewBuffer(nil)
-			if _, err := geheim.EncryptArchive(bytes.NewBuffer([]byte(msg)), out, shared, int64(len(msg)), geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, nil); err != nil {
+			if _, err := geheim.EncryptArchive(bytes.NewBuffer([]byte(msg)), out, shared, int64(len(msg)), geheim.ChaCha20, geheim.DefaultMode, geheim.HKDF, geheim.DefaultMAC, geheim.DefaultMD, geheim.DefaultSec, nil); err != nil {
 				continue
 			}
 			conn.WriteTo(out.Bytes(), peerAddr)
@@ -243,6 +287,7 @@ options:
 		peers := make(nodes)
 		conn, err := net.ListenPacket("udp", *fBeaconAddr)
 		check(err)
+		printf("listening on %s\n", *fBeaconAddr)
 		for {
 			buf := make([]byte, *fBufSize)
 			n, peerAddr, err := conn.ReadFrom(buf)
@@ -254,7 +299,7 @@ options:
 				continue
 			}
 			peers[peerAddr.String()] = pubkey
-			go peers.Broadcast(conn, *fPass)
+			go peers.Broadcast(conn, key)
 		}
 	}
 }
