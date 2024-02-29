@@ -75,7 +75,7 @@ func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
 	return nil, ErrMode
 }
 
-func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key []byte, nonce []byte) (cipher.Stream, error) {
+func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key, nonce []byte) (cipher.Stream, error) {
 	if err := checkBytesSize(nonceSizes, cipher, nonce, "nonce"); err != nil {
 		return nil, err
 	}
