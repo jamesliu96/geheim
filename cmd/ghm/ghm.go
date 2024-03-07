@@ -249,8 +249,7 @@ options:
 			check(err)
 		}
 	}
-	input := io.Reader(inputFile)
-	output := io.Writer(outputFile)
+	input, output := io.Reader(inputFile), io.Writer(outputFile)
 	var done chan struct{}
 	if *fProgress {
 		pw := geheim.NewProgressWriter(size)

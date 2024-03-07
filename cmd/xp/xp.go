@@ -66,8 +66,7 @@ func main() {
 			printf("%-5s%x\n%-5s%x\n", "priv", priv, "pub", pub)
 		}
 	case x:
-		var scalar []byte
-		var point []byte
+		var scalar, point []byte
 		var err error
 		if stdinTerm {
 			if argc < 3 {

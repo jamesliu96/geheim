@@ -43,7 +43,7 @@ const (
 
 func GetMemory(sec int) int64 { return 1 << (20 + sec) }
 
-func deriveKey(kdf KDF, sec int, size int, key, salt []byte) ([]byte, error) {
+func deriveKey(kdf KDF, sec, size int, key, salt []byte) ([]byte, error) {
 	if sec < MinSec || sec > MaxSec {
 		return nil, ErrSec
 	}
@@ -59,7 +59,7 @@ func deriveKey(kdf KDF, sec int, size int, key, salt []byte) ([]byte, error) {
 	return nil, ErrKDF
 }
 
-func deriveKeys(kdf KDF, mdfn MDFunc, sec int, sizeCipher, sizeMAC int, key, salt []byte) ([]byte, []byte, error) {
+func deriveKeys(kdf KDF, mdfn MDFunc, sec, sizeCipher, sizeMAC int, key, salt []byte) ([]byte, []byte, error) {
 	if len(key) == 0 {
 		return nil, nil, ErrKey
 	}
