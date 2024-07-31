@@ -5,8 +5,8 @@ ldflags="-X main.app=$app -X main.gitTag=$tag -X main.gitRev=$rev"
 outdir=build
 echo "# $pkg $tag $rev" 1>&2
 
-if [[ $1 = "-build" ]]; then
-  if [[ $2 = "-clean" ]]; then
+if [[ $1 == "-build" ]]; then
+  if [[ $2 == "-clean" ]]; then
     printf "removing \"$outdir\" ... "
     rm -rf $outdir \
       && echo "SUCCEEDED" \
