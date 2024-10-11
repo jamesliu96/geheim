@@ -54,9 +54,9 @@ var (
 	meta      = NewMeta()
 	header, _ = meta.Header()
 
-	MetaSize   = int64(binary.Size(meta))
-	HeaderSize = int64(binary.Size(header))
-	Overhead   = MetaSize + HeaderSize
+	MetaSize     = int64(binary.Size(meta))
+	HeaderSize   = int64(binary.Size(header))
+	OverheadSize = MetaSize + HeaderSize
 )
 
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {

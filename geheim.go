@@ -138,7 +138,7 @@ func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cip
 			err = fmt.Errorf("%+v", r)
 		}
 	}()
-	dataSize := Overhead + size
+	dataSize := OverheadSize + size
 	if err = writeBEN(w, dataSize); err != nil {
 		return
 	}

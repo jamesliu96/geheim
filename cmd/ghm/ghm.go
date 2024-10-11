@@ -35,6 +35,12 @@ func check(err error) {
 	}
 }
 
+func warn(err error) {
+	if err != nil {
+		printf("warning: %s\n", err)
+	}
+}
+
 var (
 	fDecrypt      = flag.Bool("d", false, "decrypt")
 	fInput        = flag.String("i", os.Stdin.Name(), "input `path`")
@@ -229,6 +235,9 @@ options:
 			check(signFile.Close())
 		}
 	}()
+	if *fArchive && !*fDecrypt && size <= 0 {
+		warn(errors.New("ghm: non-positive size input"))
+	}
 	if *fVerbose {
 		printf("%-8s%s\n", "INPUT", inputFile.Name())
 		printf("%-8s%s\n", "OUTPUT", outputFile.Name())
