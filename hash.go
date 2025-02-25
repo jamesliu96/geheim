@@ -2,11 +2,11 @@ package geheim
 
 import (
 	"crypto/sha256"
+	"crypto/sha3"
 	"crypto/sha512"
 	"hash"
 
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/sha3"
 )
 
 type MD int
@@ -64,13 +64,13 @@ var MDString = getOptionString(mds[:], MDNames)
 func getMD(md MD) (MDFunc, error) {
 	switch md {
 	case SHA3_224:
-		return sha3.New224, nil
+		return func() hash.Hash { return sha3.New224() }, nil
 	case SHA3_256:
-		return sha3.New256, nil
+		return func() hash.Hash { return sha3.New256() }, nil
 	case SHA3_384:
-		return sha3.New384, nil
+		return func() hash.Hash { return sha3.New384() }, nil
 	case SHA3_512:
-		return sha3.New512, nil
+		return func() hash.Hash { return sha3.New512() }, nil
 	case SHA_224:
 		return sha256.New224, nil
 	case SHA_256:

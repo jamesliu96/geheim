@@ -1,10 +1,9 @@
 package geheim
 
 import (
-	"io"
+	"crypto/hkdf"
 
 	"golang.org/x/crypto/argon2"
-	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -68,12 +67,12 @@ func deriveKeys(kdf KDF, mdfn MDFunc, sec, sizeCipher, sizeMAC int, key, salt []
 	}
 	switch kdf {
 	case HKDF:
-		keyCipher := make([]byte, sizeCipher)
-		if _, err := io.ReadFull(hkdf.New(mdfn, key, salt, []byte("CIP")), keyCipher); err != nil {
+		keyCipher, err := hkdf.Key(mdfn, key, salt, "CIP", sizeCipher)
+		if err != nil {
 			return nil, nil, err
 		}
-		keyMAC := make([]byte, sizeMAC)
-		if _, err := io.ReadFull(hkdf.New(mdfn, key, salt, []byte("MAC")), keyMAC); err != nil {
+		keyMAC, err := hkdf.Key(mdfn, key, salt, "MAC", sizeMAC)
+		if err != nil {
 			return nil, nil, err
 		}
 		return keyCipher, keyMAC, nil
