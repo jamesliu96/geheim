@@ -61,7 +61,7 @@ var flags = make(map[string]bool)
 
 func readKey(question string) (key []byte, err error) {
 	for len(key) == 0 {
-		printf(question)
+		printf("%s", question)
 		key, err = term.ReadPassword(int(os.Stdin.Fd()))
 		printf("\n")
 		if err != nil {

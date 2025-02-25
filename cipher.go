@@ -41,41 +41,27 @@ type Mode int
 
 const (
 	CTR Mode = 1 + iota
-	CFB
-	OFB
 )
 
 var ModeNames = map[Mode]string{
 	CTR: "CTR",
-	CFB: "CFB",
-	OFB: "OFB",
 }
 
 var modes = [...]Mode{
 	CTR,
-	CFB,
-	OFB,
 }
 
 var ModeString = getOptionString(modes[:], ModeNames)
 
-func getStreamMode(mode Mode, decrypt bool) (StreamMode, error) {
+func getStreamMode(mode Mode) (StreamMode, error) {
 	switch mode {
 	case CTR:
 		return cipher.NewCTR, nil
-	case CFB:
-		if decrypt {
-			return cipher.NewCFBDecrypter, nil
-		} else {
-			return cipher.NewCFBEncrypter, nil
-		}
-	case OFB:
-		return cipher.NewOFB, nil
 	}
 	return nil, ErrMode
 }
 
-func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key, nonce []byte) (cipher.Stream, error) {
+func newCipherStream(cipher Cipher, mode Mode, key, nonce []byte) (cipher.Stream, error) {
 	if err := checkBytesSize(nonceSizes, cipher, nonce, "nonce"); err != nil {
 		return nil, err
 	}
@@ -85,7 +71,7 @@ func newCipherStream(cipher Cipher, mode Mode, decrypt bool, key, nonce []byte) 
 		if err != nil {
 			return nil, err
 		}
-		sm, err := getStreamMode(mode, decrypt)
+		sm, err := getStreamMode(mode)
 		if err != nil {
 			return nil, err
 		}

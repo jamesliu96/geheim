@@ -37,7 +37,7 @@ func Encrypt(r io.Reader, w io.Writer, key []byte, cipher Cipher, mode Mode, kdf
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, mode, false, keyCipher, nonce)
+	stream, err := newCipherStream(cipher, mode, keyCipher, nonce)
 	if err != nil {
 		return
 	}
@@ -96,7 +96,7 @@ func Decrypt(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (sign []
 	if err != nil {
 		return
 	}
-	stream, err := newCipherStream(cipher, mode, true, keyCipher, nonce)
+	stream, err := newCipherStream(cipher, mode, keyCipher, nonce)
 	if err != nil {
 		return
 	}
