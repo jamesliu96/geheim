@@ -36,6 +36,13 @@ var kdfs = [...]KDF{
 var KDFString = getOptionString(kdfs[:], KDFNames)
 
 const (
+	infoCIP = "CIP"
+	infoMAC = "MAC"
+)
+
+const keyMasterSize = 32
+
+const (
 	MinSec = 0
 	MaxSec = 20
 )
@@ -65,21 +72,20 @@ func deriveKeys(kdf KDF, mdfn MDFunc, sec, sizeCipher, sizeMAC int, key, salt []
 	if err := checkBytesSize(saltSizes, kdf, salt, "salt"); err != nil {
 		return nil, nil, err
 	}
-	switch kdf {
-	case HKDF:
-		keyCipher, err := hkdf.Key(mdfn, key, salt, "CIP", sizeCipher)
-		if err != nil {
+	keyMaster := key
+	if kdf != HKDF {
+		var err error
+		if keyMaster, err = deriveKey(kdf, sec, keyMasterSize, key, salt); err != nil {
 			return nil, nil, err
 		}
-		keyMAC, err := hkdf.Key(mdfn, key, salt, "MAC", sizeMAC)
-		if err != nil {
-			return nil, nil, err
-		}
-		return keyCipher, keyMAC, nil
 	}
-	keys, err := deriveKey(kdf, sec, sizeCipher+sizeMAC, key, salt)
+	keyCipher, err := hkdf.Key(mdfn, keyMaster, salt, infoCIP, sizeCipher)
 	if err != nil {
 		return nil, nil, err
 	}
-	return keys[:sizeCipher], keys[sizeCipher : sizeCipher+sizeMAC], nil
+	keyMAC, err := hkdf.Key(mdfn, keyMaster, salt, infoMAC, sizeMAC)
+	if err != nil {
+		return nil, nil, err
+	}
+	return keyCipher, keyMAC, nil
 }

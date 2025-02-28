@@ -5,8 +5,6 @@ import (
 	"crypto/sha3"
 	"crypto/sha512"
 	"hash"
-
-	"golang.org/x/crypto/blake2b"
 )
 
 type MD int
@@ -22,9 +20,6 @@ const (
 	SHA_512
 	SHA_512_224
 	SHA_512_256
-	BLAKE2b_256
-	BLAKE2b_384
-	BLAKE2b_512
 )
 
 var MDNames = map[MD]string{
@@ -38,9 +33,6 @@ var MDNames = map[MD]string{
 	SHA_512:     "SHA-512",
 	SHA_512_224: "SHA-512/224",
 	SHA_512_256: "SHA-512/256",
-	BLAKE2b_256: "BLAKE2b-256",
-	BLAKE2b_384: "BLAKE2b-384",
-	BLAKE2b_512: "BLAKE2b-512",
 }
 
 var mds = [...]MD{
@@ -54,9 +46,6 @@ var mds = [...]MD{
 	SHA_512,
 	SHA_512_224,
 	SHA_512_256,
-	BLAKE2b_256,
-	BLAKE2b_384,
-	BLAKE2b_512,
 }
 
 var MDString = getOptionString(mds[:], MDNames)
@@ -83,21 +72,6 @@ func getMD(md MD) (MDFunc, error) {
 		return sha512.New512_224, nil
 	case SHA_512_256:
 		return sha512.New512_256, nil
-	case BLAKE2b_256:
-		return func() hash.Hash {
-			h, _ := blake2b.New256(nil)
-			return h
-		}, nil
-	case BLAKE2b_384:
-		return func() hash.Hash {
-			h, _ := blake2b.New384(nil)
-			return h
-		}, nil
-	case BLAKE2b_512:
-		return func() hash.Hash {
-			h, _ := blake2b.New512(nil)
-			return h
-		}, nil
 	}
 	return nil, ErrMD
 }

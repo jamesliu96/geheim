@@ -50,9 +50,7 @@ var (
 	fArchive      = flag.Bool("z", false, "archive")
 
 	fCipher = flag.Int("c", int(geheim.DefaultCipher), fmt.Sprintf("%s (%s)", geheim.CipherDesc, geheim.CipherString))
-	fMode   = flag.Int("m", int(geheim.DefaultMode), fmt.Sprintf("%s (%s)", geheim.ModeDesc, geheim.ModeString))
 	fKDF    = flag.Int("k", int(geheim.DefaultKDF), fmt.Sprintf("%s (%s)", geheim.KDFDesc, geheim.KDFString))
-	fMAC    = flag.Int("a", int(geheim.DefaultMAC), fmt.Sprintf("%s (%s)", geheim.MACDesc, geheim.MACString))
 	fMD     = flag.Int("h", int(geheim.DefaultMD), fmt.Sprintf("%s (%s)", geheim.MDDesc, geheim.MDString))
 	fSec    = flag.Int("e", geheim.DefaultSec, fmt.Sprintf("%s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec))
 )
@@ -178,7 +176,7 @@ func cpuFeatures() (d []string) {
 	}
 	ks := reflect.TypeOf(arch)
 	vs := reflect.ValueOf(arch)
-	for i := 0; i < ks.NumField(); i++ {
+	for i := range ks.NumField() {
 		k := ks.Field(i)
 		v := vs.Field(i)
 		if k.Type.Kind() == reflect.Bool && v.Bool() {
@@ -266,13 +264,13 @@ options:
 		if *fDecrypt {
 			sign, signex, err = geheim.DecryptArchive(input, output, key, printFunc)
 		} else {
-			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
+			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.MD(*fMD), *fSec, printFunc)
 		}
 	} else {
 		if *fDecrypt {
 			sign, err = geheim.DecryptVerify(input, output, key, signex, printFunc)
 		} else {
-			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.Mode(*fMode), geheim.KDF(*fKDF), geheim.MAC(*fMAC), geheim.MD(*fMD), *fSec, printFunc)
+			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.MD(*fMD), *fSec, printFunc)
 		}
 	}
 	if done != nil {

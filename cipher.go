@@ -11,71 +11,45 @@ import (
 type Cipher int
 
 const (
-	AES_256 Cipher = 1 + iota
+	AES_256_CTR Cipher = 1 + iota
 	ChaCha20
 )
 
 var CipherNames = map[Cipher]string{
-	AES_256:  "AES-256",
-	ChaCha20: "ChaCha20",
+	AES_256_CTR: "AES-256-CTR",
+	ChaCha20:    "ChaCha20",
 }
 
 var nonceSizes = map[Cipher]int{
-	AES_256:  aes.BlockSize,
-	ChaCha20: chacha20.NonceSize,
+	AES_256_CTR: aes.BlockSize,
+	ChaCha20:    chacha20.NonceSize,
 }
 
 var keySizesCipher = map[Cipher]int{
-	AES_256:  32,
-	ChaCha20: chacha20.KeySize,
+	AES_256_CTR: 32,
+	ChaCha20:    chacha20.KeySize,
 }
 
 var ciphers = [...]Cipher{
-	AES_256,
+	AES_256_CTR,
 	ChaCha20,
 }
 
 var CipherString = getOptionString(ciphers[:], CipherNames)
 
-type Mode int
+var newCTR = cipher.NewCTR
 
-const (
-	CTR Mode = 1 + iota
-)
-
-var ModeNames = map[Mode]string{
-	CTR: "CTR",
-}
-
-var modes = [...]Mode{
-	CTR,
-}
-
-var ModeString = getOptionString(modes[:], ModeNames)
-
-func getStreamMode(mode Mode) (StreamMode, error) {
-	switch mode {
-	case CTR:
-		return cipher.NewCTR, nil
-	}
-	return nil, ErrMode
-}
-
-func newCipherStream(cipher Cipher, mode Mode, key, nonce []byte) (cipher.Stream, error) {
+func newCipherStream(cipher Cipher, key, nonce []byte) (cipher.Stream, error) {
 	if err := checkBytesSize(nonceSizes, cipher, nonce, "nonce"); err != nil {
 		return nil, err
 	}
 	switch cipher {
-	case AES_256:
+	case AES_256_CTR:
 		block, err := aes.NewCipher(key)
 		if err != nil {
 			return nil, err
 		}
-		sm, err := getStreamMode(mode)
-		if err != nil {
-			return nil, err
-		}
-		return sm(block, nonce), nil
+		return newCTR(block, nonce), nil
 	case ChaCha20:
 		stream, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 		return stream, err

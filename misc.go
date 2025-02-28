@@ -1,7 +1,6 @@
 package geheim
 
 import (
-	"crypto/cipher"
 	"crypto/hmac"
 	"encoding/binary"
 	"errors"
@@ -17,18 +16,14 @@ import (
 
 const (
 	CipherDesc = "cipher"
-	ModeDesc   = "stream mode"
 	KDFDesc    = "key derivation"
-	MACDesc    = "message authentication"
 	MDDesc     = "message digest"
-	SecDesc    = "security level"
+	SecDesc    = "security"
 )
 
 type PrintFunc func(version int, header Header, keys, keyCipher, keyMAC []byte) error
 
 type MDFunc func() hash.Hash
-
-type StreamMode func(cipher.Block, []byte) cipher.Stream
 
 var (
 	ErrKey    = errors.New("geheim: empty key")
@@ -36,9 +31,7 @@ var (
 	ErrSign   = errors.New("geheim: signature verification failed")
 
 	ErrCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
-	ErrMode   = fmt.Errorf("geheim: invalid %s (%s)", ModeDesc, ModeString)
 	ErrKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
-	ErrMAC    = fmt.Errorf("geheim: invalid %s (%s)", MACDesc, MACString)
 	ErrMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
 	ErrSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
 )
@@ -62,15 +55,10 @@ var (
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
 	return func(version int, header Header, key, keyCipher, keyMAC []byte) error {
-		cipher, mode, kdf, mac, md, sec, salt, nonce := header.Get()
+		cipher, kdf, md, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
-		if cipher == AES_256 {
-			printf("%-8s%s-%s(%d,%d)\n", "CIPHER", CipherNames[cipher], ModeNames[mode], cipher, mode)
-		} else {
-			printf("%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
-		}
+		printf("%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
 		printf("%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
-		printf("%-8s%s(%d)\n", "MAC", MACNames[mac], mac)
 		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
 		if kdf != HKDF {
 			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
