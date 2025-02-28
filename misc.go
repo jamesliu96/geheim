@@ -58,8 +58,12 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		cipher, kdf, md, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
 		printf("%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
-		printf("%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
-		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
+		if kdf == HKDF {
+			printf("%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
+		} else {
+			printf("%-8s%s+HKDF-%s(%d,%d)\n", "KDF", KDFNames[kdf], MDNames[md], kdf, md)
+		}
+		printf("%-8sHMAC-%s(%d)\n", "MAC", MDNames[md], md)
 		if kdf != HKDF {
 			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
 		}
@@ -218,7 +222,7 @@ func getOptionString[T comparable](values []T, names map[T]string) string {
 
 func checkBytesSize[T comparable](sizes map[T]int, key T, value []byte, name string) error {
 	if sizes[key] != len(value) {
-		return fmt.Errorf("geheim: invalid %s size", name)
+		return fmt.Errorf("geheim: invalid %s size %d (%d expected)", name, len(value), sizes[key])
 	}
 	return nil
 }
