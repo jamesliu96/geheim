@@ -13,22 +13,18 @@ options:
   -P    progress
   -V    version
   -X    print signature hex
-  -a int
-        message authentication (1:HMAC) (default 1)
   -c int
-        cipher (1:AES-256, 2:ChaCha20) (default 1)
+        cipher (1:AES-256-CTR, 2:ChaCha20) (default 1)
   -d    decrypt
   -e int
-        security level (0~20) (default 10)
+        security (0~20) (default 12)
   -f    overwrite
   -h int
-        message digest (1:SHA3-224, 2:SHA3-256, 3:SHA3-384, 4:SHA3-512, 5:SHA-224, 6:SHA-256, 7:SHA-384, 8:SHA-512, 9:SHA-512/224, 10:SHA-512/256, 11:BLAKE2b-256, 12:BLAKE2b-384, 13:BLAKE2b-512) (default 6)
+        message digest (1:SHA3-224, 2:SHA3-256, 3:SHA3-384, 4:SHA3-512, 5:SHA-224, 6:SHA-256, 7:SHA-384, 8:SHA-512, 9:SHA-512/224, 10:SHA-512/256) (default 6)
   -i path
         input path (default "/dev/stdin")
   -k int
         key derivation (1:HKDF, 2:Argon2id, 3:Scrypt) (default 2)
-  -m int
-        stream mode (1:CTR, 2:CFB, 3:OFB) (default 1)
   -o path
         output path (default "/dev/stdout")
   -p key
