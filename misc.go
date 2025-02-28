@@ -58,12 +58,13 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		cipher, kdf, md, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
 		printf("%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
+		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
 		if kdf == HKDF {
-			printf("%-8s%s(%d)\n", "KDF", KDFNames[kdf], kdf)
+			printf("%-8s%s-%s(%d)\n", "KDF", KDFNames[kdf], MDNames[md], kdf)
 		} else {
-			printf("%-8s%s+HKDF-%s(%d,%d)\n", "KDF", KDFNames[kdf], MDNames[md], kdf, md)
+			printf("%-8s%s+HKDF-%s(%d)\n", "KDF", KDFNames[kdf], MDNames[md], kdf)
 		}
-		printf("%-8sHMAC-%s(%d)\n", "MAC", MDNames[md], md)
+		printf("%-8sHMAC-%s\n", "MAC", MDNames[md])
 		if kdf != HKDF {
 			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
 		}
