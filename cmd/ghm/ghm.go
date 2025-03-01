@@ -264,13 +264,13 @@ options:
 		if *fDecrypt {
 			sign, signex, err = geheim.DecryptArchive(input, output, key, printFunc)
 		} else {
-			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.Hash(*fHash), *fSec, printFunc)
+			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.Hash(*fHash), geheim.KDF(*fKDF), *fSec, printFunc)
 		}
 	} else {
 		if *fDecrypt {
 			sign, err = geheim.DecryptVerify(input, output, key, signex, printFunc)
 		} else {
-			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.Hash(*fHash), *fSec, printFunc)
+			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.Hash(*fHash), geheim.KDF(*fKDF), *fSec, printFunc)
 		}
 	}
 	if done != nil {

@@ -13,7 +13,7 @@ const (
 	DefaultSec    = 10
 )
 
-func Encrypt(r io.Reader, w io.Writer, key []byte, cipher Cipher, kdf KDF, hash Hash, sec int, printFunc PrintFunc) (sign []byte, err error) {
+func Encrypt(r io.Reader, w io.Writer, key []byte, cipher Cipher, hash Hash, kdf KDF, sec int, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
@@ -131,7 +131,7 @@ func DecryptVerify(r io.Reader, w io.Writer, key, signex []byte, printFunc Print
 	return
 }
 
-func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cipher, kdf KDF, hash Hash, sec int, printFunc PrintFunc) (sign []byte, err error) {
+func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cipher, hash Hash, kdf KDF, sec int, printFunc PrintFunc) (sign []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%+v", r)
@@ -141,7 +141,7 @@ func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cip
 	if err = writeBEN(w, dataSize); err != nil {
 		return
 	}
-	if sign, err = Encrypt(io.LimitReader(r, size), w, key, cipher, kdf, hash, sec, printFunc); err != nil {
+	if sign, err = Encrypt(io.LimitReader(r, size), w, key, cipher, hash, kdf, sec, printFunc); err != nil {
 		return
 	}
 	if err = writeBEN(w, int64(len(sign))); err != nil {
