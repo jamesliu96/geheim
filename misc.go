@@ -60,7 +60,7 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		if kdf != HKDF {
 			hkdf = "+HKDF"
 		}
-		printf("%-8s%s%s-%s(%d)\n", "KDF", KDFNames[kdf], HashNames[hash], hkdf, kdf)
+		printf("%-8s%s%s-%s(%d)\n", "KDF", KDFNames[kdf], hkdf, HashNames[hash], kdf)
 		printf("%-8sHMAC-%s\n", "MAC", HashNames[hash])
 		if kdf != HKDF {
 			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec), 0), sec)
