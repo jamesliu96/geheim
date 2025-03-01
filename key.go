@@ -2,6 +2,9 @@ package geheim
 
 import (
 	"crypto/hkdf"
+	"fmt"
+	"hash"
+	"strings"
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/scrypt"
@@ -49,6 +52,14 @@ const (
 
 func GetMemory(sec int) int64 { return 1 << (20 + sec) }
 
+var SecString = func() string {
+	d := make([]string, MaxSec-MinSec+1)
+	for i := MinSec; i <= MaxSec; i++ {
+		d[i] = fmt.Sprintf("%d:%s", i, FormatSize(GetMemory(i), 0))
+	}
+	return strings.Join(d, ", ")
+}()
+
 func deriveKey(kdf KDF, sec, size int, key, salt []byte) ([]byte, error) {
 	if sec < MinSec || sec > MaxSec {
 		return nil, ErrSec
@@ -65,7 +76,7 @@ func deriveKey(kdf KDF, sec, size int, key, salt []byte) ([]byte, error) {
 	return nil, ErrKDF
 }
 
-func deriveKeys(kdf KDF, mdfn MDFunc, sec, sizeCipher, sizeMAC int, key, salt []byte) ([]byte, []byte, error) {
+func deriveKeys(kdf KDF, h func() hash.Hash, sec, sizeCipher, sizeMAC int, key, salt []byte) ([]byte, []byte, error) {
 	if len(key) == 0 {
 		return nil, nil, ErrKey
 	}
@@ -79,11 +90,11 @@ func deriveKeys(kdf KDF, mdfn MDFunc, sec, sizeCipher, sizeMAC int, key, salt []
 			return nil, nil, err
 		}
 	}
-	keyCipher, err := hkdf.Key(mdfn, keyMaster, salt, infoCIP, sizeCipher)
+	keyCipher, err := hkdf.Key(h, keyMaster, salt, infoCIP, sizeCipher)
 	if err != nil {
 		return nil, nil, err
 	}
-	keyMAC, err := hkdf.Key(mdfn, keyMaster, salt, infoMAC, sizeMAC)
+	keyMAC, err := hkdf.Key(h, keyMaster, salt, infoMAC, sizeMAC)
 	if err != nil {
 		return nil, nil, err
 	}

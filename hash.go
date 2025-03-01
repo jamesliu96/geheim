@@ -7,10 +7,10 @@ import (
 	"hash"
 )
 
-type MD int
+type Hash int
 
 const (
-	SHA3_224 MD = 1 + iota
+	SHA3_224 Hash = 1 + iota
 	SHA3_256
 	SHA3_384
 	SHA3_512
@@ -22,7 +22,7 @@ const (
 	SHA_512_256
 )
 
-var MDNames = map[MD]string{
+var HashNames = map[Hash]string{
 	SHA3_224:    "SHA3-224",
 	SHA3_256:    "SHA3-256",
 	SHA3_384:    "SHA3-384",
@@ -35,7 +35,7 @@ var MDNames = map[MD]string{
 	SHA_512_256: "SHA-512/256",
 }
 
-var mds = [...]MD{
+var hs = [...]Hash{
 	SHA3_224,
 	SHA3_256,
 	SHA3_384,
@@ -48,10 +48,10 @@ var mds = [...]MD{
 	SHA_512_256,
 }
 
-var MDString = getOptionString(mds[:], MDNames)
+var HashString = getOptionString(hs[:], HashNames)
 
-func getMD(md MD) (MDFunc, error) {
-	switch md {
+func getHash(h Hash) (func() hash.Hash, error) {
+	switch h {
 	case SHA3_224:
 		return func() hash.Hash { return sha3.New224() }, nil
 	case SHA3_256:
@@ -73,5 +73,5 @@ func getMD(md MD) (MDFunc, error) {
 	case SHA_512_256:
 		return sha512.New512_256, nil
 	}
-	return nil, ErrMD
+	return nil, ErrHash
 }

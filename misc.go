@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"os"
 	"strings"
@@ -14,34 +13,14 @@ import (
 	"golang.org/x/term"
 )
 
+type PrintFunc func(version int, header Header, keys, keyCipher, keyMAC []byte) error
+
 const (
 	CipherDesc = "cipher"
 	KDFDesc    = "key derivation"
-	MDDesc     = "message digest"
+	HashDesc   = "hash"
 	SecDesc    = "security"
 )
-
-type PrintFunc func(version int, header Header, keys, keyCipher, keyMAC []byte) error
-
-type MDFunc func() hash.Hash
-
-var (
-	ErrKey    = errors.New("geheim: empty key")
-	ErrHeader = errors.New("geheim: malformed header")
-	ErrSign   = errors.New("geheim: signature verification failed")
-
-	ErrCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
-	ErrKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
-	ErrMD     = fmt.Errorf("geheim: invalid %s (%s)", MDDesc, MDString)
-	ErrSec    = fmt.Errorf("geheim: invalid %s (%d~%d)", SecDesc, MinSec, MaxSec)
-)
-
-func Verify(x, y []byte) error {
-	if !hmac.Equal(x, y) {
-		return ErrSign
-	}
-	return nil
-}
 
 var (
 	meta      = NewMeta()
@@ -52,21 +31,39 @@ var (
 	OverheadSize = MetaSize + HeaderSize
 )
 
+var (
+	ErrKey    = errors.New("geheim: empty key")
+	ErrHeader = errors.New("geheim: malformed header")
+	ErrSign   = errors.New("geheim: signature verification failed")
+
+	ErrCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
+	ErrKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
+	ErrHash   = fmt.Errorf("geheim: invalid %s (%s)", HashDesc, HashString)
+	ErrSec    = fmt.Errorf("geheim: invalid %s (%s)", SecDesc, SecString)
+)
+
+func Verify(x, y []byte) error {
+	if !hmac.Equal(x, y) {
+		return ErrSign
+	}
+	return nil
+}
+
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
 	return func(version int, header Header, key, keyCipher, keyMAC []byte) error {
-		cipher, kdf, md, sec, salt, nonce := header.Get()
+		cipher, hash, kdf, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
 		printf("%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
-		printf("%-8s%s(%d)\n", "MD", MDNames[md], md)
-		if kdf == HKDF {
-			printf("%-8s%s-%s(%d)\n", "KDF", KDFNames[kdf], MDNames[md], kdf)
-		} else {
-			printf("%-8s%s+HKDF-%s(%d)\n", "KDF", KDFNames[kdf], MDNames[md], kdf)
-		}
-		printf("%-8sHMAC-%s\n", "MAC", MDNames[md])
+		printf("%-8s%s(%d)\n", "HASH", HashNames[hash], hash)
+		var hkdf string
 		if kdf != HKDF {
-			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec)), sec)
+			hkdf = "+HKDF"
+		}
+		printf("%-8s%s%s-%s(%d)\n", "KDF", KDFNames[kdf], HashNames[hash], hkdf, kdf)
+		printf("%-8sHMAC-%s\n", "MAC", HashNames[hash])
+		if kdf != HKDF {
+			printf("%-8s%s(%d)\n", "SEC", FormatSize(GetMemory(sec), 0), sec)
 		}
 		printf("%-8s%x\n", "SALT", salt)
 		printf("%-8s%x\n", "NONCE", nonce)
@@ -81,10 +78,10 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	}
 }
 
-func FormatSize(n int64) string {
+func FormatSize(n int64, dec uint) string {
 	var unit string
 	nn := float64(n)
-	f := "%.2f"
+	f := fmt.Sprintf("%%.%df", dec)
 	switch {
 	case nn >= 1<<60:
 		nn /= 1 << 60
@@ -167,12 +164,12 @@ func (w *ProgressWriter) print(last bool) {
 	var totalPerc string
 	if hasTotalPerc {
 		perc = float64(w.bytesWritten) / float64(w.TotalBytes)
-		totalPerc = fmt.Sprintf("/%s (%.f%%)", FormatSize(w.TotalBytes), perc*100)
+		totalPerc = fmt.Sprintf("/%s (%.f%%)", FormatSize(w.TotalBytes, 2), perc*100)
 	}
-	left := fmt.Sprintf("%s%s", FormatSize(w.bytesWritten), totalPerc)
-	right := fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds())))
+	left := fmt.Sprintf("%s%s", FormatSize(w.bytesWritten, 2), totalPerc)
+	right := fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds()), 2))
 	if last {
-		right = fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten)/float64(time.Since(w.initTime))/time.Nanosecond.Seconds())))
+		right = fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten)/float64(time.Since(w.initTime))/time.Nanosecond.Seconds()), 2))
 	}
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
 	middleWidth := width - len(left) - len(right)
@@ -223,7 +220,7 @@ func getOptionString[T comparable](values []T, names map[T]string) string {
 
 func checkBytesSize[T comparable](sizes map[T]int, key T, value []byte, name string) error {
 	if sizes[key] != len(value) {
-		return fmt.Errorf("geheim: invalid %s size %d (%d expected)", name, len(value), sizes[key])
+		return fmt.Errorf("geheim: invalid %s size", name)
 	}
 	return nil
 }

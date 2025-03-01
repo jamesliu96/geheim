@@ -51,8 +51,8 @@ var (
 
 	fCipher = flag.Int("c", int(geheim.DefaultCipher), fmt.Sprintf("%s (%s)", geheim.CipherDesc, geheim.CipherString))
 	fKDF    = flag.Int("k", int(geheim.DefaultKDF), fmt.Sprintf("%s (%s)", geheim.KDFDesc, geheim.KDFString))
-	fMD     = flag.Int("h", int(geheim.DefaultMD), fmt.Sprintf("%s (%s)", geheim.MDDesc, geheim.MDString))
-	fSec    = flag.Int("e", geheim.DefaultSec, fmt.Sprintf("%s (%d~%d)", geheim.SecDesc, geheim.MinSec, geheim.MaxSec))
+	fHash   = flag.Int("h", int(geheim.DefaultHash), fmt.Sprintf("%s (%s)", geheim.HashDesc, geheim.HashString))
+	fSec    = flag.Int("e", geheim.DefaultSec, fmt.Sprintf("%s (%s)", geheim.SecDesc, geheim.SecString))
 )
 
 var flags = make(map[string]bool)
@@ -264,13 +264,13 @@ options:
 		if *fDecrypt {
 			sign, signex, err = geheim.DecryptArchive(input, output, key, printFunc)
 		} else {
-			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.MD(*fMD), *fSec, printFunc)
+			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.Hash(*fHash), *fSec, printFunc)
 		}
 	} else {
 		if *fDecrypt {
 			sign, err = geheim.DecryptVerify(input, output, key, signex, printFunc)
 		} else {
-			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.MD(*fMD), *fSec, printFunc)
+			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.KDF(*fKDF), geheim.Hash(*fHash), *fSec, printFunc)
 		}
 	}
 	if done != nil {
