@@ -47,7 +47,7 @@ func Encrypt(r io.Reader, w io.Writer, key []byte, cipher Cipher, hash Hash, kdf
 	}
 	header.Set(cipher, hash, kdf, sec, salt, nonce)
 	if printFunc != nil {
-		err = printFunc(int(meta.Version), header, key, keyCipher, keyHMAC)
+		err = printFunc(int(meta.Version), header, key)
 		if err != nil {
 			return
 		}
@@ -98,7 +98,7 @@ func Decrypt(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (sign []
 	}
 	mw := newHMAC(h, keyHMAC)
 	if printFunc != nil {
-		err = printFunc(int(meta.Version), header, key, keyCipher, keyHMAC)
+		err = printFunc(int(meta.Version), header, key)
 		if err != nil {
 			return
 		}

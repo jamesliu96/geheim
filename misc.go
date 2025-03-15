@@ -13,7 +13,7 @@ import (
 	"golang.org/x/term"
 )
 
-type PrintFunc func(version int, header Header, keys, keyCipher, keyMAC []byte) error
+type PrintFunc func(version int, header Header, key []byte) error
 
 const (
 	CipherDesc = "cipher"
@@ -51,7 +51,7 @@ func Verify(x, y []byte) error {
 
 func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 	printf := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
-	return func(version int, header Header, key, keyCipher, keyMAC []byte) error {
+	return func(version int, header Header, key []byte) error {
 		cipher, hash, kdf, sec, salt, nonce := header.Get()
 		printf("%-8s%d\n", "VERSION", version)
 		printf("%-8s%s(%d)\n", "CIPHER", CipherNames[cipher], cipher)
@@ -72,8 +72,6 @@ func NewDefaultPrintFunc(w io.Writer) PrintFunc {
 		} else {
 			printf("%-8s%s(%x)\n", "KEY", key, key)
 		}
-		printf("%-8s%x\n", "CIPKEY", keyCipher)
-		printf("%-8s%x\n", "MACKEY", keyMAC)
 		return nil
 	}
 }
