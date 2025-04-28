@@ -38,17 +38,17 @@ const (
 
 func usage() {
 	printf(`%s %s (%s)
-usage: %s %s                                            # dh pair
-       %s %s > private.key                              # dh pair
-       %s %s <scalar_hex> [point_hex]                   # dh exchange
-       %s %s [point_hex] < scalar.key                   # dh exchange
-       %s %s                                            # dsa pair
-       %s %s > private.key                              # dsa pair
-       %s %s <message_bin> <private_hex>                # dsa sign
-       %s %s <message_bin> < private.key                # dsa sign
-       %s %s <message_bin> <public_hex> <signature_hex> # dsa verify
-       %s %s <message_bin> <signature_hex> < public.key # dsa verify
-`, app, gitTag, gitRev, app, p, app, p, app, x, app, x, app, g, app, g, app, s, app, s, app, v, app, v)
+usage: %s %s > private.key                               # dh pair
+       %s %s <private_hex> [public_hex]                  # dh exchange
+       %s %s [public_hex] < private.key                  # dh exchange
+       %s %s > private.key                               # dsa pair
+       %s %s <message> <private_hex> > signature.bin     # dsa sign
+       %s %s <message> < private.key > signature.bin     # dsa sign
+       %s %s < private.key < message.bin > signature.bin # dsa sign
+       %s %s <message> <public_hex> <signature_hex>      # dsa verify
+       %s %s <message> <public_hex> < signature.bin      # dsa verify
+       %s %s <public_hex> < signature.bin < message.bin  # dsa verify
+`, app, gitTag, gitRev, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
 	os.Exit(0)
 }
 
@@ -133,13 +133,15 @@ func main() {
 			private, err = hex.DecodeString(os.Args[3])
 			check(err)
 		} else {
-			if argc < 3 {
-				usage()
-			}
-			message = []byte(os.Args[2])
 			private = make([]byte, sv.PrivateSize)
 			_, err = io.ReadFull(os.Stdin, private)
 			check(err)
+			if argc > 2 {
+				message = []byte(os.Args[2])
+			} else {
+				message, err = io.ReadAll(os.Stdin)
+				check(err)
+			}
 		}
 		signature, err := sv.S(message, private)
 		check(err)
@@ -164,15 +166,22 @@ func main() {
 			signature, err = hex.DecodeString(os.Args[4])
 			check(err)
 		} else {
-			if argc < 4 {
+			if argc < 3 {
 				usage()
 			}
-			message = []byte(os.Args[2])
-			public = make([]byte, sv.PublicSize)
-			_, err = io.ReadFull(os.Stdin, public)
+			signature = make([]byte, sv.SignatureSize)
+			_, err = io.ReadFull(os.Stdin, signature)
 			check(err)
-			signature, err = hex.DecodeString(os.Args[3])
-			check(err)
+			if argc > 3 {
+				message = []byte(os.Args[2])
+				public, err = hex.DecodeString(os.Args[3])
+				check(err)
+			} else {
+				message, err = io.ReadAll(os.Stdin)
+				check(err)
+				public, err = hex.DecodeString(os.Args[2])
+				check(err)
+			}
 		}
 		err = sv.V(message, public, signature)
 		check(err)
