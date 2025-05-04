@@ -12,7 +12,7 @@ usage: ghm [option]...
 options:
   -P    progress
   -V    version
-  -X    print signature hex
+  -X    print authentication hex
   -c int
         cipher (1:AES-256-CTR, 2:ChaCha20) (default 1)
   -d    decrypt
@@ -30,15 +30,23 @@ options:
   -p key
         key
   -s path
-        signature path
+        authentication path
   -v    verbose
   -x hex
-        verify signature hex
+        verify authentication hex
   -z    archive
 ```
 
 ```sh
 $ xp
-usage: xp p                  # pair
-       xp x <scalar> [point] # mult
+usage: xp p > private.key                               # dh pair
+       xp x <private_hex> [public_hex]                  # dh exchange
+       xp x [public_hex] < private.key                  # dh exchange
+       xp g > private.key                               # dsa pair
+       xp s <message> <private_hex> > signature.bin     # dsa sign
+       xp s <message> < private.key > signature.bin     # dsa sign
+       xp s < private.key < message.bin > signature.bin # dsa sign
+       xp v <message> <public_hex> <signature_hex>      # dsa verify
+       xp v <message> <public_hex> < signature.bin      # dsa verify
+       xp v <public_hex> < signature.bin < message.bin  # dsa verify
 ```

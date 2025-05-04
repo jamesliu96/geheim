@@ -34,7 +34,7 @@ var (
 var (
 	ErrKey    = errors.New("geheim: empty key")
 	ErrHeader = errors.New("geheim: malformed header")
-	ErrSign   = errors.New("geheim: signature verification failed")
+	ErrAuth   = errors.New("geheim: authentication verification failed")
 
 	ErrCipher = fmt.Errorf("geheim: invalid %s (%s)", CipherDesc, CipherString)
 	ErrKDF    = fmt.Errorf("geheim: invalid %s (%s)", KDFDesc, KDFString)
@@ -44,7 +44,7 @@ var (
 
 func Verify(x, y []byte) error {
 	if !hmac.Equal(x, y) {
-		return ErrSign
+		return ErrAuth
 	}
 	return nil
 }

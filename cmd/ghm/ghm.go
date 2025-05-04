@@ -40,13 +40,13 @@ var (
 	fInput        = flag.String("i", os.Stdin.Name(), "input `path`")
 	fOutput       = flag.String("o", os.Stdout.Name(), "output `path`")
 	fKey          = flag.String("p", "", "`key`")
-	fSign         = flag.String("s", "", "signature `path`")
-	fVerSignHex   = flag.String("x", "", "verify signature `hex`")
+	fAuth         = flag.String("s", "", "authentication `path`")
+	fVerAuthHex   = flag.String("x", "", "verify authentication `hex`")
 	fOverwrite    = flag.Bool("f", false, "overwrite")
 	fVerbose      = flag.Bool("v", false, "verbose")
 	fProgress     = flag.Bool("P", false, "progress")
 	fVersion      = flag.Bool("V", false, "version")
-	fPrintSignHex = flag.Bool("X", false, "print signature hex")
+	fPrintAuthHex = flag.Bool("X", false, "print authentication hex")
 	fArchive      = flag.Bool("z", false, "archive")
 
 	fCipher = flag.Int("c", int(geheim.DefaultCipher), fmt.Sprintf("%s (%s)", geheim.CipherDesc, geheim.CipherString))
@@ -93,7 +93,7 @@ func getKey() (key []byte, err error) {
 	return
 }
 
-func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
+func getIO() (inputFile, outputFile, authFile *os.File, size int64, err error) {
 	if flags["i"] {
 		if inputFile, err = os.Open(*fInput); err != nil {
 			return
@@ -125,29 +125,29 @@ func getIO() (inputFile, outputFile, signFile *os.File, size int64, err error) {
 	}
 	if flags["s"] {
 		if *fDecrypt {
-			if signFile, err = os.Open(*fSign); err != nil {
+			if authFile, err = os.Open(*fAuth); err != nil {
 				return
 			}
 			var fi fs.FileInfo
-			if fi, err = signFile.Stat(); err != nil {
+			if fi, err = authFile.Stat(); err != nil {
 				return
 			} else if fi.IsDir() {
-				err = errors.New("ghm: signature file is a directory")
+				err = errors.New("ghm: authentication file is a directory")
 				return
 			}
 		} else {
 			if !*fOverwrite {
-				if _, e := os.Stat(*fSign); e == nil {
-					err = errors.New("ghm: signature file exists, use -f to overwrite")
+				if _, e := os.Stat(*fAuth); e == nil {
+					err = errors.New("ghm: authentication file exists, use -f to overwrite")
 					return
 				}
 			}
-			if signFile, err = os.Create(*fSign); err != nil {
+			if authFile, err = os.Create(*fAuth); err != nil {
 				return
 			}
 		}
 	}
-	for _, file := range []*os.File{inputFile, outputFile, signFile} {
+	for _, file := range []*os.File{inputFile, outputFile, authFile} {
 		if file != nil && term.IsTerminal(int(file.Fd())) {
 			err = errors.New("ghm: invalid terminal i/o")
 			break
@@ -218,32 +218,32 @@ options:
 			printf("%-8s%s\n", "MODE", "ISOLATE")
 		}
 	}
-	inputFile, outputFile, signFile, size, err := getIO()
+	inputFile, outputFile, authFile, size, err := getIO()
 	check(err)
 	defer func() {
 		check(inputFile.Close())
 		check(outputFile.Close())
-		if signFile != nil {
-			check(signFile.Close())
+		if authFile != nil {
+			check(authFile.Close())
 		}
 	}()
 	if *fVerbose {
 		printf("%-8s%s\n", "INPUT", inputFile.Name())
 		printf("%-8s%s\n", "OUTPUT", outputFile.Name())
-		if signFile != nil {
-			printf("%-8s%s\n", "SIGN", signFile.Name())
+		if authFile != nil {
+			printf("%-8s%s\n", "AUTH", authFile.Name())
 		}
 	}
 	key, err := getKey()
 	check(err)
-	var signex []byte
+	var authex []byte
 	if *fDecrypt && !*fArchive {
-		if signFile != nil {
-			signex, err = io.ReadAll(signFile)
+		if authFile != nil {
+			authex, err = io.ReadAll(authFile)
 			check(err)
 		}
 		if flags["x"] {
-			signex, err = hex.DecodeString(*fVerSignHex)
+			authex, err = hex.DecodeString(*fVerAuthHex)
 			check(err)
 		}
 	}
@@ -259,37 +259,37 @@ options:
 	if *fVerbose {
 		printFunc = geheim.NewDefaultPrintFunc(os.Stderr)
 	}
-	var sign []byte
+	var auth []byte
 	if *fArchive {
 		if *fDecrypt {
-			sign, signex, err = geheim.DecryptArchive(input, output, key, printFunc)
+			auth, authex, err = geheim.DecryptArchive(input, output, key, printFunc)
 		} else {
-			sign, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.Hash(*fHash), geheim.KDF(*fKDF), *fSec, printFunc)
+			auth, err = geheim.EncryptArchive(input, output, key, size, geheim.Cipher(*fCipher), geheim.Hash(*fHash), geheim.KDF(*fKDF), *fSec, printFunc)
 		}
 	} else {
 		if *fDecrypt {
-			sign, err = geheim.DecryptVerify(input, output, key, signex, printFunc)
+			auth, err = geheim.DecryptVerify(input, output, key, authex, printFunc)
 		} else {
-			sign, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.Hash(*fHash), geheim.KDF(*fKDF), *fSec, printFunc)
+			auth, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.Hash(*fHash), geheim.KDF(*fKDF), *fSec, printFunc)
 		}
 	}
 	if done != nil {
 		done <- struct{}{}
 	}
 	if *fVerbose {
-		if signex != nil {
-			printf("%-8s%x\n", "SIGNEX", signex)
+		if authex != nil {
+			printf("%-8s%x\n", "AUTHEX", authex)
 		}
 	}
-	if *fVerbose || *fPrintSignHex {
-		if sign != nil {
-			printf("%-8s%x\n", "SIGNED", sign)
+	if *fVerbose || *fPrintAuthHex {
+		if auth != nil {
+			printf("%-8s%x\n", "AUTHED", auth)
 		}
 	}
 	check(err)
 	if !*fDecrypt {
-		if signFile != nil {
-			_, err = signFile.Write(sign)
+		if authFile != nil {
+			_, err = authFile.Write(auth)
 			check(err)
 		}
 	}
