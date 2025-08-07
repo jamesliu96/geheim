@@ -220,13 +220,6 @@ options:
 	}
 	inputFile, outputFile, authFile, size, err := getIO()
 	check(err)
-	defer func() {
-		check(inputFile.Close())
-		check(outputFile.Close())
-		if authFile != nil {
-			check(authFile.Close())
-		}
-	}()
 	if *fVerbose {
 		printf("%-8s%s\n", "INPUT", inputFile.Name())
 		printf("%-8s%s\n", "OUTPUT", outputFile.Name())
