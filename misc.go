@@ -1,6 +1,7 @@
 package geheim
 
 import (
+	"context"
 	"crypto/hmac"
 	"encoding/binary"
 	"errors"
@@ -127,36 +128,34 @@ func (w *ProgressWriter) Write(p []byte) (n int, err error) {
 func (w *ProgressWriter) Reset() {
 	w.bytesWritten = 0
 	w.lastBytesWritten = 0
-	w.initTime = time.Time{}
-	w.lastTime = time.Time{}
 }
 
-func (w *ProgressWriter) Progress(duration time.Duration, done <-chan struct{}) {
+func (w *ProgressWriter) Progress(ctx context.Context, d time.Duration) {
 	w.initTime = time.Now()
-	var stop bool
+	w.lastTime = w.initTime
+	t := time.Tick(d)
 	for {
-		select {
-		case <-done:
-			stop = true
-		default:
-		}
-		n := time.Now()
-		w.print(stop)
+		w.Print(false)
 		w.lastBytesWritten = w.bytesWritten
-		w.lastTime = n
-		if stop {
-			break
+		w.lastTime = time.Now()
+		select {
+		case <-ctx.Done():
+			w.Print(true)
+			return
+		case <-t:
 		}
-		time.Sleep(duration - time.Since(n))
 	}
 }
 
 const (
 	leftBracket  = " ["
 	rightBracket = "] "
+	emptyBar     = '-'
+	arrowBar     = '>'
+	competeBar   = '='
 )
 
-func (w *ProgressWriter) print(last bool) {
+func (w *ProgressWriter) Print(last bool) {
 	hasTotalPerc := w.TotalBytes > 0
 	var perc float64
 	var totalPerc string
@@ -179,11 +178,11 @@ func (w *ProgressWriter) print(last bool) {
 			bars := make([]byte, barsWidth)
 			for i := range bars {
 				if i < complete {
-					bars[i] = '='
+					bars[i] = competeBar
 				} else if i != 0 && i == complete {
-					bars[i] = '>'
+					bars[i] = arrowBar
 				} else {
-					bars[i] = '-'
+					bars[i] = emptyBar
 				}
 			}
 			middle = fmt.Sprintf("%s%s%s", leftBracket, bars, rightBracket)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -241,12 +242,11 @@ options:
 		}
 	}
 	input, output := io.Reader(inputFile), io.Writer(outputFile)
-	var done chan struct{}
+	var pw *geheim.ProgressWriter
 	if *fProgress {
-		pw := geheim.NewProgressWriter(size)
+		pw = geheim.NewProgressWriter(size)
 		input = io.TeeReader(input, pw)
-		done = make(chan struct{})
-		go pw.Progress(time.Second, done)
+		go pw.Progress(context.Background(), time.Second)
 	}
 	var printFunc geheim.PrintFunc
 	if *fVerbose {
@@ -266,8 +266,8 @@ options:
 			auth, err = geheim.Encrypt(input, output, key, geheim.Cipher(*fCipher), geheim.Hash(*fHash), geheim.KDF(*fKDF), *fSec, printFunc)
 		}
 	}
-	if done != nil {
-		done <- struct{}{}
+	if pw != nil {
+		pw.Print(true)
 	}
 	if *fVerbose {
 		if authex != nil {
