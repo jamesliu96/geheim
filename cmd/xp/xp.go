@@ -30,10 +30,10 @@ func check(err error) {
 }
 
 const (
-	pp = "pp"
-	PP = "PP"
-	xx = "xx"
-	XX = "XX"
+	q  = "q"
+	qq = "Q"
+	c  = "c"
+	cc = "C"
 	p  = "p"
 	x  = "x"
 	g  = "g"
@@ -62,7 +62,7 @@ usage: %s %s > private.key                               # mlkem pair
        %s %s <message> <public_hex> <signature_hex>      # dsa verify
        %s %s <message> <public_hex> < signature.bin      # dsa verify
        %s %s <public_hex> < signature.bin < message.bin  # dsa verify
-`, app, gitTag, gitRev, app, pp, app, PP, app, PP, app, xx, app, xx, app, XX, app, XX, app, XX, app, XX, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
+`, app, gitTag, gitRev, app, q, app, qq, app, qq, app, c, app, c, app, cc, app, cc, app, cc, app, cc, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
 	os.Exit(0)
 }
 
@@ -84,7 +84,7 @@ func main() {
 		usage()
 	}
 	switch os.Args[1] {
-	case pp:
+	case q:
 		dk, err := mlkem.GenerateKey768()
 		dkBytes := dk.Bytes()
 		check(err)
@@ -95,7 +95,7 @@ func main() {
 			os.Stdout.Write(dkBytes)
 			printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
 		}
-	case PP:
+	case qq:
 		var (
 			dkBytes []byte
 			err     error
@@ -120,7 +120,7 @@ func main() {
 			os.Stdout.Write(ekBytes)
 			printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
 		}
-	case xx:
+	case c:
 		var (
 			ekBytes []byte
 			err     error
@@ -145,7 +145,7 @@ func main() {
 			os.Stdout.Write(ct)
 			printf("%-3s%x\n%-3s%x\n", "sk", sk, "ct", ct)
 		}
-	case XX:
+	case cc:
 		var (
 			dkBytes, ct []byte
 			err         error
