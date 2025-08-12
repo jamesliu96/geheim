@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/mlkem"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -29,18 +30,31 @@ func check(err error) {
 }
 
 const (
-	p = "p"
-	x = "x"
-	g = "g"
-	s = "s"
-	v = "v"
+	pp = "pp"
+	PP = "PP"
+	xx = "xx"
+	XX = "XX"
+	p  = "p"
+	x  = "x"
+	g  = "g"
+	s  = "s"
+	v  = "v"
 )
 
 func usage() {
 	printf(`%s %s (%s)
-usage: %s %s > private.key                               # dh pair
-       %s %s <private_hex> [public_hex]                  # dh exchange
-       %s %s [public_hex] < private.key                  # dh exchange
+usage: %s %s > private.key                               # mlkem pair
+       %s %s <private_hex> > public.key                  # mlkem public
+       %s %s < private.key > public.key                  # mlkem public
+       %s %s <public_hex> > ciphertext.bin               # mlkem encapsulate
+       %s %s < public.key > ciphertext.bin               # mlkem encapsulate
+       %s %s <private_hex> <ciphertext_hex> > shared.key # mlkem decapsulate
+       %s %s <private_hex> < ciphertext.bin > shared.key # mlkem decapsulate
+       %s %s <ciphertext_hex> < private.key > shared.key # mlkem decapsulate
+       %s %s < private.key < ciphertext.bin > shared.key # mlkem decapsulate
+       %s %s > private.key                               # dh pair
+       %s %s <private_hex> [public_hex] > shared.key     # dh exchange
+       %s %s [public_hex] < private.key > shared.key     # dh exchange
        %s %s > private.key                               # dsa pair
        %s %s <message> <private_hex> > signature.bin     # dsa sign
        %s %s <message> < private.key > signature.bin     # dsa sign
@@ -48,7 +62,7 @@ usage: %s %s > private.key                               # dh pair
        %s %s <message> <public_hex> <signature_hex>      # dsa verify
        %s %s <message> <public_hex> < signature.bin      # dsa verify
        %s %s <public_hex> < signature.bin < message.bin  # dsa verify
-`, app, gitTag, gitRev, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
+`, app, gitTag, gitRev, app, pp, app, PP, app, PP, app, xx, app, xx, app, XX, app, XX, app, XX, app, XX, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
 	os.Exit(0)
 }
 
@@ -70,6 +84,114 @@ func main() {
 		usage()
 	}
 	switch os.Args[1] {
+	case pp:
+		dk, err := mlkem.GenerateKey768()
+		dkBytes := dk.Bytes()
+		check(err)
+		ekBytes := dk.EncapsulationKey().Bytes()
+		if stdoutTerm {
+			fmt.Printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
+		} else {
+			os.Stdout.Write(dkBytes)
+			printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
+		}
+	case PP:
+		var (
+			dkBytes []byte
+			err     error
+		)
+		if stdinTerm {
+			if argc < 3 {
+				usage()
+			}
+			dkBytes, err = hex.DecodeString(os.Args[2])
+			check(err)
+		} else {
+			dkBytes = make([]byte, mlkem.SeedSize)
+			_, err = io.ReadFull(os.Stdin, dkBytes)
+			check(err)
+		}
+		dk, err := mlkem.NewDecapsulationKey768(dkBytes)
+		check(err)
+		ekBytes := dk.EncapsulationKey().Bytes()
+		if stdoutTerm {
+			fmt.Printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
+		} else {
+			os.Stdout.Write(ekBytes)
+			printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
+		}
+	case xx:
+		var (
+			ekBytes []byte
+			err     error
+		)
+		if stdinTerm {
+			if argc < 3 {
+				usage()
+			}
+			ekBytes, err = hex.DecodeString(os.Args[2])
+			check(err)
+		} else {
+			ekBytes = make([]byte, mlkem.EncapsulationKeySize768)
+			_, err = io.ReadFull(os.Stdin, ekBytes)
+			check(err)
+		}
+		ek, err := mlkem.NewEncapsulationKey768(ekBytes)
+		check(err)
+		sk, ct := ek.Encapsulate()
+		if stdoutTerm {
+			fmt.Printf("%-3s%x\n%-3s%x\n", "sk", sk, "ct", ct)
+		} else {
+			os.Stdout.Write(ct)
+			printf("%-3s%x\n%-3s%x\n", "sk", sk, "ct", ct)
+		}
+	case XX:
+		var (
+			dkBytes, ct []byte
+			err         error
+		)
+		if stdinTerm {
+			if argc < 4 {
+				usage()
+			}
+			dkBytes, err = hex.DecodeString(os.Args[2])
+			check(err)
+			ct, err = hex.DecodeString(os.Args[3])
+			check(err)
+		} else {
+			if argc > 3 {
+				dkOrCtBytes, err := hex.DecodeString(os.Args[2])
+				check(err)
+				if len(dkOrCtBytes) == mlkem.SeedSize {
+					dkBytes = dkOrCtBytes
+					ct = make([]byte, mlkem.CiphertextSize768)
+					_, err = io.ReadFull(os.Stdin, ct)
+					check(err)
+				} else {
+					dkBytes = make([]byte, mlkem.SeedSize)
+					_, err = io.ReadFull(os.Stdin, dkBytes)
+					check(err)
+					ct = dkOrCtBytes
+				}
+			} else {
+				dkBytes = make([]byte, mlkem.SeedSize)
+				_, err = io.ReadFull(os.Stdin, dkBytes)
+				check(err)
+				ct = make([]byte, mlkem.CiphertextSize768)
+				_, err = io.ReadFull(os.Stdin, ct)
+				check(err)
+			}
+		}
+		dk, err := mlkem.NewDecapsulationKey768(dkBytes)
+		check(err)
+		sk, err := dk.Decapsulate(ct)
+		check(err)
+		if stdoutTerm {
+			fmt.Printf("%-3s%x\n%-3s%x\n", "sk", sk, "ct", ct)
+		} else {
+			os.Stdout.Write(sk)
+			printf("%-3s%x\n%-3s%x\n", "sk", sk, "ct", ct)
+		}
 	case p:
 		private, public, err := xp.P()
 		check(err)
