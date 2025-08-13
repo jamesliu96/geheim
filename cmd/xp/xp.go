@@ -52,16 +52,16 @@ usage: %s %s > private.key                               # mlkem pair
        %s %s <private_hex> < ciphertext.bin > shared.key # mlkem decapsulate
        %s %s <ciphertext_hex> < private.key > shared.key # mlkem decapsulate
        %s %s < private.key < ciphertext.bin > shared.key # mlkem decapsulate
-       %s %s > private.key                               # dh pair
-       %s %s <private_hex> [public_hex] > shared.key     # dh exchange
-       %s %s [public_hex] < private.key > shared.key     # dh exchange
-       %s %s > private.key                               # dsa pair
-       %s %s <message> <private_hex> > signature.bin     # dsa sign
-       %s %s <message> < private.key > signature.bin     # dsa sign
-       %s %s < private.key < message.bin > signature.bin # dsa sign
-       %s %s <message> <public_hex> <signature_hex>      # dsa verify
-       %s %s <message> <public_hex> < signature.bin      # dsa verify
-       %s %s <public_hex> < signature.bin < message.bin  # dsa verify
+       %s %s > private.key                               # ecdh pair
+       %s %s <private_hex> [public_hex] > shared.key     # ecdh exchange
+       %s %s [public_hex] < private.key > shared.key     # ecdh exchange
+       %s %s > private.key                               # ecdsa pair
+       %s %s <message> <private_hex> > signature.bin     # ecdsa sign
+       %s %s <message> < private.key > signature.bin     # ecdsa sign
+       %s %s < private.key < message.bin > signature.bin # ecdsa sign
+       %s %s <message> <public_hex> <signature_hex>      # ecdsa verify
+       %s %s <message> <public_hex> < signature.bin      # ecdsa verify
+       %s %s <public_hex> < signature.bin < message.bin  # ecdsa verify
 `, app, gitTag, gitRev, app, q, app, z, app, z, app, e, app, e, app, d, app, d, app, d, app, d, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
 	os.Exit(0)
 }
