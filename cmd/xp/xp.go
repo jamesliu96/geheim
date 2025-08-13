@@ -30,15 +30,15 @@ func check(err error) {
 }
 
 const (
-	q  = "q"
-	qq = "Q"
-	c  = "c"
-	cc = "C"
-	p  = "p"
-	x  = "x"
-	g  = "g"
-	s  = "s"
-	v  = "v"
+	q = "q"
+	z = "z"
+	e = "e"
+	d = "d"
+	p = "p"
+	x = "x"
+	g = "g"
+	s = "s"
+	v = "v"
 )
 
 func usage() {
@@ -62,7 +62,7 @@ usage: %s %s > private.key                               # mlkem pair
        %s %s <message> <public_hex> <signature_hex>      # dsa verify
        %s %s <message> <public_hex> < signature.bin      # dsa verify
        %s %s <public_hex> < signature.bin < message.bin  # dsa verify
-`, app, gitTag, gitRev, app, q, app, qq, app, qq, app, c, app, c, app, cc, app, cc, app, cc, app, cc, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
+`, app, gitTag, gitRev, app, q, app, z, app, z, app, e, app, e, app, d, app, d, app, d, app, d, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
 	os.Exit(0)
 }
 
@@ -95,7 +95,7 @@ func main() {
 			os.Stdout.Write(dkBytes)
 			printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
 		}
-	case qq:
+	case z:
 		var (
 			dkBytes []byte
 			err     error
@@ -120,7 +120,7 @@ func main() {
 			os.Stdout.Write(ekBytes)
 			printf("%-5s%x\n%-5s%x\n", "priv", dkBytes, "pub", ekBytes)
 		}
-	case c:
+	case e:
 		var (
 			ekBytes []byte
 			err     error
@@ -145,7 +145,7 @@ func main() {
 			os.Stdout.Write(ct)
 			printf("%-3s%x\n%-3s%x\n", "sk", sk, "ct", ct)
 		}
-	case cc:
+	case d:
 		var (
 			dkBytes, ct []byte
 			err         error
