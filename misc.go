@@ -157,16 +157,20 @@ const (
 
 func (w *ProgressWriter) Print(last bool) {
 	hasTotalPerc := w.TotalBytes > 0
-	var perc float64
-	var totalPerc string
+	var (
+		perc      float64
+		totalPerc string
+	)
 	if hasTotalPerc {
 		perc = float64(w.bytesWritten) / float64(w.TotalBytes)
 		totalPerc = fmt.Sprintf("/%s (%.f%%)", FormatSize(w.TotalBytes, 2), perc*100)
 	}
 	left := fmt.Sprintf("%s%s", FormatSize(w.bytesWritten, 2), totalPerc)
-	right := fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds()), 2))
+	var right string
 	if last {
 		right = fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten)/float64(time.Since(w.initTime))/time.Nanosecond.Seconds()), 2))
+	} else {
+		right = fmt.Sprintf("%s/s", FormatSize(int64(float64(w.bytesWritten-w.lastBytesWritten)/float64(time.Since(w.lastTime))/time.Nanosecond.Seconds()), 2))
 	}
 	width, _, _ := term.GetSize(int(os.Stderr.Fd()))
 	middleWidth := width - len(left) - len(right)
