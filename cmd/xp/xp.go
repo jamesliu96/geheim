@@ -77,6 +77,12 @@ var (
 )
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			printf("error: %v\n", r)
+			os.Exit(1)
+		}
+	}()
 	argc := len(os.Args)
 	if argc < 2 {
 		usage()

@@ -191,6 +191,12 @@ func cpuFeatures() (d []string) {
 }
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			printf("error: %v\n", r)
+			os.Exit(1)
+		}
+	}()
 	flag.Usage = func() {
 		printf(`usage: %s [option]...
 options:

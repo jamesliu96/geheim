@@ -16,7 +16,7 @@ const (
 func Encrypt(r io.Reader, w io.Writer, key []byte, cipher Cipher, hash Hash, kdf KDF, sec int, printFunc PrintFunc) (auth []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%+v", r)
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	salt := make([]byte, saltSizes[kdf])
@@ -69,7 +69,7 @@ func Encrypt(r io.Reader, w io.Writer, key []byte, cipher Cipher, hash Hash, kdf
 func Decrypt(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (auth []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%+v", r)
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	meta := NewMeta()
@@ -119,7 +119,7 @@ func Decrypt(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (auth []
 func DecryptVerify(r io.Reader, w io.Writer, key, authex []byte, printFunc PrintFunc) (auth []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%+v", r)
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	if auth, err = Decrypt(r, w, key, printFunc); err != nil {
@@ -134,7 +134,7 @@ func DecryptVerify(r io.Reader, w io.Writer, key, authex []byte, printFunc Print
 func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cipher, hash Hash, kdf KDF, sec int, printFunc PrintFunc) (auth []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%+v", r)
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	dataSize := OverheadSize + size
@@ -154,7 +154,7 @@ func EncryptArchive(r io.Reader, w io.Writer, key []byte, size int64, cipher Cip
 func DecryptArchive(r io.Reader, w io.Writer, key []byte, printFunc PrintFunc) (auth, authex []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%+v", r)
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	dataSize, err := readBEN[int64](r)

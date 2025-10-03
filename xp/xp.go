@@ -14,7 +14,7 @@ var Base = curve25519.Basepoint
 func P() (private, public []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%+v", r)
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	private = make([]byte, Size)
@@ -31,7 +31,7 @@ func P() (private, public []byte, err error) {
 func X(scalar, point []byte) (product []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%+v", r)
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	if point == nil {
