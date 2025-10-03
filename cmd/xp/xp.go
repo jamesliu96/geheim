@@ -24,8 +24,7 @@ func printf(format string, a ...any) { fmt.Fprintf(os.Stderr, format, a...) }
 
 func check(err error) {
 	if err != nil {
-		printf("error: %s\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 }
 
@@ -63,7 +62,6 @@ usage: %s %s > private.key                               # mlkem pair
        %s %s <message> <public_hex> < signature.bin      # ecdsa verify
        %s %s <public_hex> < signature.bin < message.bin  # ecdsa verify
 `, app, gitTag, gitRev, app, q, app, z, app, z, app, e, app, e, app, d, app, d, app, d, app, d, app, p, app, x, app, x, app, g, app, s, app, s, app, s, app, v, app, v, app, v)
-	os.Exit(0)
 }
 
 func isTerminal(file *os.File) bool {
@@ -82,6 +80,7 @@ func main() {
 	argc := len(os.Args)
 	if argc < 2 {
 		usage()
+		return
 	}
 	switch os.Args[1] {
 	case q:
@@ -103,6 +102,7 @@ func main() {
 		if stdinTerm {
 			if argc < 3 {
 				usage()
+				return
 			}
 			dkBytes, err = hex.DecodeString(os.Args[2])
 			check(err)
@@ -128,6 +128,7 @@ func main() {
 		if stdinTerm {
 			if argc < 3 {
 				usage()
+				return
 			}
 			ekBytes, err = hex.DecodeString(os.Args[2])
 			check(err)
@@ -153,6 +154,7 @@ func main() {
 		if stdinTerm {
 			if argc < 4 {
 				usage()
+				return
 			}
 			dkBytes, err = hex.DecodeString(os.Args[2])
 			check(err)
@@ -209,6 +211,7 @@ func main() {
 		if stdinTerm {
 			if argc < 3 {
 				usage()
+				return
 			}
 			scalar, err = hex.DecodeString(os.Args[2])
 			check(err)
@@ -250,6 +253,7 @@ func main() {
 		if stdinTerm {
 			if argc < 4 {
 				usage()
+				return
 			}
 			message = []byte(os.Args[2])
 			private, err = hex.DecodeString(os.Args[3])
@@ -281,6 +285,7 @@ func main() {
 		if stdinTerm {
 			if argc < 5 {
 				usage()
+				return
 			}
 			message = []byte(os.Args[2])
 			public, err = hex.DecodeString(os.Args[3])
@@ -290,6 +295,7 @@ func main() {
 		} else {
 			if argc < 3 {
 				usage()
+				return
 			}
 			signature = make([]byte, sv.SignatureSize)
 			_, err = io.ReadFull(os.Stdin, signature)

@@ -31,8 +31,7 @@ func printf(format string, a ...any) { fmt.Fprintf(os.Stderr, format, a...) }
 
 func check(err error) {
 	if err != nil {
-		printf("error: %s\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 }
 
@@ -197,10 +196,10 @@ func main() {
 options:
 `, app)
 		flag.PrintDefaults()
-		os.Exit(0)
 	}
 	if len(os.Args) < 2 {
 		flag.Usage()
+		return
 	}
 	flag.Parse()
 	flag.Visit(func(f *flag.Flag) { flags[f.Name] = true })
@@ -210,7 +209,7 @@ options:
 		} else {
 			printf("%s %s (%s)\n", app, gitTag, gitRev)
 		}
-		os.Exit(0)
+		return
 	}
 	if *fVerbose {
 		if *fArchive {
