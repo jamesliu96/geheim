@@ -1,7 +1,7 @@
 pkg=github.com/jamesliu96/geheim/cmd/$app
 tag=$(git describe --tags --always)
 rev=$(git rev-list -1 HEAD)
-buildflags=(-trimpath "-ldflags=-X main.gitTag=$tag -X main.gitRev=$rev -s -w")
+ldflags="-ldflags=-X main.gitTag=$tag -X main.gitRev=$rev"
 outdir=build
 echo "# $pkg $tag $rev" 1>&2
 
@@ -25,10 +25,10 @@ if [[ $1 == "-build" ]]; then
     printf "building \"$out\" ... "
     CGO_ENABLED=0 \
     GOOS=$os GOARCH=$arch \
-      go build "${buildflags[@]}" -o $out $pkg \
+      go build -trimpath "$ldflags -s -w" -o $out $pkg \
         && echo "SUCCEEDED" \
         || echo "FAILED"
   done
 else
-  go run "${buildflags[@]}" $pkg $@
+  go run "$ldflags" $pkg $@
 fi
