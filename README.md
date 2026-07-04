@@ -39,14 +39,23 @@ options:
 
 ```sh
 $ xp
-usage: xp p > private.key                               # dh pair
-       xp x <private_hex> [public_hex]                  # dh exchange
-       xp x [public_hex] < private.key                  # dh exchange
-       xp g > private.key                               # dsa pair
-       xp s <message> <private_hex> > signature.bin     # dsa sign
-       xp s <message> < private.key > signature.bin     # dsa sign
-       xp s < private.key < message.bin > signature.bin # dsa sign
-       xp v <message> <public_hex> <signature_hex>      # dsa verify
-       xp v <message> <public_hex> < signature.bin      # dsa verify
-       xp v <public_hex> < signature.bin < message.bin  # dsa verify
+usage: xp q > private.key                               # mlkem pair
+       xp z <private_hex> > public.key                  # mlkem public
+       xp z < private.key > public.key                  # mlkem public
+       xp e <public_hex> > ciphertext.bin               # mlkem encapsulate
+       xp e < public.key > ciphertext.bin               # mlkem encapsulate
+       xp d <private_hex> <ciphertext_hex> > shared.key # mlkem decapsulate
+       xp d <private_hex> < ciphertext.bin > shared.key # mlkem decapsulate
+       xp d <ciphertext_hex> < private.key > shared.key # mlkem decapsulate
+       xp d < private.key < ciphertext.bin > shared.key # mlkem decapsulate
+       xp p > private.key                               # ecdh pair
+       xp x <private_hex> [public_hex] > shared.key     # ecdh exchange
+       xp x [public_hex] < private.key > shared.key     # ecdh exchange
+       xp g > private.key                               # ecdsa pair
+       xp s <message> <private_hex> > signature.bin     # ecdsa sign
+       xp s <message> < private.key > signature.bin     # ecdsa sign
+       xp s < private.key < message.bin > signature.bin # ecdsa sign
+       xp v <message> <public_hex> <signature_hex>      # ecdsa verify
+       xp v <message> <public_hex> < signature.bin      # ecdsa verify
+       xp v <public_hex> < signature.bin < message.bin  # ecdsa verify
 ```
