@@ -171,6 +171,10 @@ func cpuFeatures() (d []string) {
 		arch = cpu.PPC64
 	case "s390x":
 		arch = cpu.S390X
+	case "riscv64":
+		arch = cpu.RISCV64
+	case "loong64":
+		arch = cpu.Loong64
 	default:
 		return
 	}
